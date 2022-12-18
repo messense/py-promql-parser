@@ -9,9 +9,8 @@ use self::expr::PyExpr;
 #[pyfunction]
 fn parse(py: Python, input: &str) -> PyResult<PyObject> {
     let expr = parser::parse(input).unwrap();
-    let py_expr = PyExpr::new(expr);
-    let subclass = py_expr.into_subclass(py)?;
-    Ok(subclass)
+    let py_expr = PyExpr::create(py, expr)?;
+    Ok(py_expr)
 }
 
 /// A Python module implemented in Rust.
