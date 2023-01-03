@@ -20,13 +20,19 @@ fn promql_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<expr::PyAggregateExpr>()?;
     m.add_class::<expr::PyUnaryExpr>()?;
     m.add_class::<expr::PyBinaryExpr>()?;
+    m.add_class::<expr::PyVectorMatchCardinality>()?;
+    m.add_class::<expr::PyVectorMatching>()?;
     m.add_class::<expr::PyParenExpr>()?;
     m.add_class::<expr::PySubqueryExpr>()?;
     m.add_class::<expr::PyNumberLiteral>()?;
     m.add_class::<expr::PyStringLiteral>()?;
+    m.add_class::<expr::PyMatchOp>()?;
+    m.add_class::<expr::PyMatcher>()?;
     m.add_class::<expr::PyVectorSelector>()?;
     m.add_class::<expr::PyMatrixSelector>()?;
     m.add_class::<expr::PyCall>()?;
+    m.add_class::<expr::PyValueType>()?;
+    m.add_class::<expr::PyFunction>()?;
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     Ok(())
 }
