@@ -1,4 +1,5 @@
 use ::promql_parser::parser;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 mod expr;
@@ -8,7 +9,7 @@ use self::expr::PyExpr;
 /// Formats the sum of two numbers as string.
 #[pyfunction]
 fn parse(py: Python, input: &str) -> PyResult<PyObject> {
-    let expr = parser::parse(input).unwrap();
+    let expr = parser::parse(input).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let py_expr = PyExpr::create(py, expr)?;
     Ok(py_expr)
 }
@@ -18,12 +19,18 @@ fn parse(py: Python, input: &str) -> PyResult<PyObject> {
 fn promql_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyExpr>()?;
     m.add_class::<expr::PyAggregateExpr>()?;
+    m.add_class::<expr::PyAggModifier>()?;
+    m.add_class::<expr::PyAggModifierType>()?;
     m.add_class::<expr::PyUnaryExpr>()?;
     m.add_class::<expr::PyBinaryExpr>()?;
+    m.add_class::<expr::PyBinModifier>()?;
+    m.add_class::<expr::PyVectorMatchModifier>()?;
+    m.add_class::<expr::PyVectorMatchModifierType>()?;
     m.add_class::<expr::PyVectorMatchCardinality>()?;
-    m.add_class::<expr::PyVectorMatching>()?;
     m.add_class::<expr::PyParenExpr>()?;
     m.add_class::<expr::PySubqueryExpr>()?;
+    m.add_class::<expr::PyAtModifier>()?;
+    m.add_class::<expr::PyAtModifierType>()?;
     m.add_class::<expr::PyNumberLiteral>()?;
     m.add_class::<expr::PyStringLiteral>()?;
     m.add_class::<expr::PyMatchOp>()?;

@@ -1,4 +1,13 @@
-use promql_parser::parser::{Expr, TokenType, ValueType, VectorMatchCardinality};
+use std::collections::HashSet;
+
+use chrono::Duration;
+use promql_parser::label::Labels;
+use promql_parser::parser::{
+    AggModifier, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, MatrixSelector, NumberLiteral,
+    Offset, ParenExpr, StringLiteral, SubqueryExpr, TokenType, UnaryExpr, ValueType,
+    VectorMatchCardinality, VectorMatchModifier, VectorSelector,
+};
+use pyo3::exceptions::PyOverflowError;
 use pyo3::prelude::*;
 
 #[pyclass(subclass, name = "Expr", module = "promql_parser")]
@@ -7,141 +16,35 @@ pub struct PyExpr;
 impl PyExpr {
     pub fn create(py: Python, expr: Expr) -> PyResult<PyObject> {
         match expr {
-            Expr::AggregateExpr {
-                op,
-                expr,
-                param,
-                grouping,
-                without,
-            } => {
-                let initializer = PyClassInitializer::from(Self).add_subclass(PyAggregateExpr {
-                    op,
-                    expr: Self::create(py, *expr)?,
-                    param: Self::create(py, *param)?,
-                    grouping,
-                    without,
-                });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
-            Expr::UnaryExpr { op, expr } => {
+            Expr::Aggregate(agg) => PyAggregateExpr::new(py, agg),
+            Expr::Unary(UnaryExpr { op, expr }) => {
                 let initializer = PyClassInitializer::from(Self).add_subclass(PyUnaryExpr {
                     op,
                     expr: Self::create(py, *expr)?,
                 });
                 Ok(Py::new(py, initializer)?.into_py(py))
             }
-            Expr::BinaryExpr {
-                op,
-                lhs,
-                rhs,
-                matching,
-                return_bool,
-            } => {
-                let matching = matching.map(|m| PyVectorMatching {
-                    card: m.card.into(),
-                    matching_labels: m.matching_labels,
-                    on: m.on,
-                    include: m.include,
-                });
-                let initializer = PyClassInitializer::from(Self).add_subclass(PyBinaryExpr {
-                    op,
-                    lhs: Self::create(py, *lhs)?,
-                    rhs: Self::create(py, *rhs)?,
-                    matching,
-                    return_bool,
-                });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
-            Expr::ParenExpr { expr } => {
+            Expr::Binary(bin) => PyBinaryExpr::new(py, bin),
+            Expr::Paren(ParenExpr { expr }) => {
                 let initializer = PyClassInitializer::from(Self).add_subclass(PyParenExpr {
                     expr: Self::create(py, *expr)?,
                 });
                 Ok(Py::new(py, initializer)?.into_py(py))
             }
-            Expr::SubqueryExpr {
-                expr,
-                timestamp,
-                start_or_end,
-                ..
-            } => {
-                let initializer = PyClassInitializer::from(Self).add_subclass(PySubqueryExpr {
-                    expr: Self::create(py, *expr)?,
-                    timestamp,
-                    start_or_end,
-                });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
-            Expr::NumberLiteral { val, span } => {
-                let initializer = PyClassInitializer::from(Self).add_subclass(PyNumberLiteral {
-                    val,
-                    span: PySpan {
-                        start: span.start(),
-                        end: span.end(),
-                    },
-                });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
-            Expr::StringLiteral { val, span } => {
-                let initializer = PyClassInitializer::from(Self).add_subclass(PyStringLiteral {
-                    val,
-                    span: PySpan {
-                        start: span.start(),
-                        end: span.end(),
-                    },
-                });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
-            Expr::VectorSelector {
-                ref name,
-                ref start_or_end,
-                ref label_matchers,
-                ..
-            } => {
-                let name = name.clone();
-                let start_or_end = *start_or_end;
-                let label_matchers = &label_matchers.matchers;
-                let mut py_matchers = Vec::with_capacity(label_matchers.len());
-                for matcher in label_matchers {
-                    py_matchers.push(PyMatcher {
-                        name: matcher.name.clone(),
-                        value: matcher.value.clone(),
-                        op: match matcher.op {
-                            promql_parser::label::MatchOp::Equal => PyMatchOp::Equal,
-                            promql_parser::label::MatchOp::NotEqual => PyMatchOp::NotEqual,
-                            promql_parser::label::MatchOp::Re(_) => PyMatchOp::Re,
-                            promql_parser::label::MatchOp::NotRe(_) => PyMatchOp::NotRe,
-                        },
-                    });
-                }
-
-                let initializer = PyClassInitializer::from(Self).add_subclass(PyVectorSelector {
-                    name,
-                    start_or_end,
-                    label_matchers: py_matchers,
-                });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
-            Expr::MatrixSelector {
-                vector_selector, ..
-            } => {
-                let initializer = PyClassInitializer::from(Self).add_subclass(PyMatrixSelector {
-                    vector_selector: Self::create(py, *vector_selector)?,
-                });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
-            Expr::Call { func, args, .. } => {
-                let func = PyFunction {
-                    name: func.name,
-                    arg_types: func.arg_types.into_iter().map(|t| t.into()).collect(),
-                    variadic: func.variadic,
-                    return_type: func.return_type.into(),
-                };
-                let args: Result<Vec<_>, _> =
-                    args.into_iter().map(|arg| Self::create(py, *arg)).collect();
+            Expr::Subquery(subquery) => PySubqueryExpr::new(py, subquery),
+            Expr::NumberLiteral(NumberLiteral { val }) => {
                 let initializer =
-                    PyClassInitializer::from(Self).add_subclass(PyCall { func, args: args? });
+                    PyClassInitializer::from(Self).add_subclass(PyNumberLiteral { val });
                 Ok(Py::new(py, initializer)?.into_py(py))
             }
+            Expr::StringLiteral(StringLiteral { val }) => {
+                let initializer =
+                    PyClassInitializer::from(Self).add_subclass(PyStringLiteral { val });
+                Ok(Py::new(py, initializer)?.into_py(py))
+            }
+            Expr::VectorSelector(selector) => PyVectorSelector::new(py, selector),
+            Expr::MatrixSelector(selector) => PyMatrixSelector::new(py, selector),
+            Expr::Call(call) => PyCall::new(py, call),
         }
     }
 }
@@ -153,11 +56,55 @@ pub struct PyAggregateExpr {
     #[pyo3(get)]
     expr: PyObject,
     #[pyo3(get)]
-    param: PyObject,
+    param: Option<PyObject>,
     #[pyo3(get)]
-    grouping: Vec<String>,
+    grouping: PyAggModifier,
+}
+
+impl PyAggregateExpr {
+    fn new(py: Python, expr: AggregateExpr) -> PyResult<PyObject> {
+        let AggregateExpr {
+            op,
+            expr,
+            param,
+            grouping,
+        } = expr;
+        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyAggregateExpr {
+            op,
+            expr: PyExpr::create(py, *expr)?,
+            param: match param {
+                Some(param) => Some(PyExpr::create(py, *param)?),
+                None => None,
+            },
+            grouping: match grouping {
+                AggModifier::By(labels) => PyAggModifier {
+                    r#type: PyAggModifierType::By,
+                    labels,
+                },
+                AggModifier::Without(labels) => PyAggModifier {
+                    r#type: PyAggModifierType::Without,
+                    labels,
+                },
+            },
+        });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
+}
+
+#[pyclass(name = "AggModifier", module = "promql_parser")]
+#[derive(Debug, Clone)]
+pub struct PyAggModifier {
     #[pyo3(get)]
-    without: bool,
+    r#type: PyAggModifierType,
+    #[pyo3(get)]
+    labels: Labels,
+}
+
+#[pyclass(name = "AggModifierType", module = "promql_parser")]
+#[derive(Debug, Clone, Copy)]
+pub enum PyAggModifierType {
+    By,
+    Without,
 }
 
 #[pyclass(extends = PyExpr, name = "UnaryExpr", module = "promql_parser")]
@@ -177,9 +124,66 @@ pub struct PyBinaryExpr {
     #[pyo3(get)]
     rhs: PyObject,
     #[pyo3(get)]
-    matching: Option<PyVectorMatching>,
+    matching: PyBinModifier,
+}
+
+impl PyBinaryExpr {
+    fn new(py: Python, expr: BinaryExpr) -> PyResult<PyObject> {
+        let BinaryExpr {
+            op,
+            lhs,
+            rhs,
+            matching,
+        } = expr;
+        let matching = PyBinModifier {
+            card: matching.card.into(),
+            matching: match matching.matching {
+                VectorMatchModifier::On(labels) => PyVectorMatchModifier {
+                    r#type: PyVectorMatchModifierType::On,
+                    labels,
+                },
+                VectorMatchModifier::Ignoring(labels) => PyVectorMatchModifier {
+                    r#type: PyVectorMatchModifierType::Ignoring,
+                    labels,
+                },
+            },
+            return_bool: matching.return_bool,
+        };
+        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyBinaryExpr {
+            op,
+            lhs: PyExpr::create(py, *lhs)?,
+            rhs: PyExpr::create(py, *rhs)?,
+            matching,
+        });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
+}
+
+#[pyclass(name = "BinModifier", module = "promql_parser")]
+#[derive(Debug, Clone)]
+pub struct PyBinModifier {
+    #[pyo3(get)]
+    card: PyVectorMatchCardinality,
+    #[pyo3(get)]
+    matching: PyVectorMatchModifier,
     #[pyo3(get)]
     return_bool: bool,
+}
+
+#[pyclass(name = "VectorMatchModifier", module = "promql_parser")]
+#[derive(Debug, Clone)]
+pub struct PyVectorMatchModifier {
+    #[pyo3(get)]
+    r#type: PyVectorMatchModifierType,
+    #[pyo3(get)]
+    labels: Labels,
+}
+
+#[pyclass(name = "VectorMatchModifierType", module = "promql_parser")]
+#[derive(Debug, Clone, Copy)]
+pub enum PyVectorMatchModifierType {
+    On,
+    Ignoring,
 }
 
 #[pyclass(name = "VectorMatchCardinality", module = "promql_parser")]
@@ -188,31 +192,18 @@ pub enum PyVectorMatchCardinality {
     OneToOne,
     ManyToOne,
     OneToMany,
-    ManyToMany,
+    // ManyToMany,
 }
 
 impl From<VectorMatchCardinality> for PyVectorMatchCardinality {
     fn from(value: VectorMatchCardinality) -> Self {
         match value {
             VectorMatchCardinality::OneToOne => PyVectorMatchCardinality::OneToOne,
-            VectorMatchCardinality::ManyToOne => PyVectorMatchCardinality::ManyToOne,
-            VectorMatchCardinality::OneToMany => PyVectorMatchCardinality::OneToMany,
-            VectorMatchCardinality::ManyToMany => PyVectorMatchCardinality::ManyToMany,
+            VectorMatchCardinality::ManyToOne(_) => PyVectorMatchCardinality::ManyToOne,
+            VectorMatchCardinality::OneToMany(_) => PyVectorMatchCardinality::OneToMany,
+            // VectorMatchCardinality::ManyToMany => PyVectorMatchCardinality::ManyToMany,
         }
     }
-}
-
-#[pyclass(name = "VectorMatching", module = "promql_parser")]
-#[derive(Debug, Clone)]
-pub struct PyVectorMatching {
-    #[pyo3(get)]
-    card: PyVectorMatchCardinality,
-    #[pyo3(get)]
-    matching_labels: Vec<String>,
-    #[pyo3(get)]
-    on: bool,
-    #[pyo3(get)]
-    include: Vec<String>,
 }
 
 #[pyclass(extends = PyExpr, name = "ParenExpr", module = "promql_parser")]
@@ -225,46 +216,88 @@ pub struct PyParenExpr {
 pub struct PySubqueryExpr {
     #[pyo3(get)]
     expr: PyObject,
-    // #[pyo3(get)]
-    // range: Duration,
-    // #[pyo3(get)]
-    // offset: Duration,
     #[pyo3(get)]
-    timestamp: Option<i64>,
+    offset: Option<Duration>,
     #[pyo3(get)]
-    start_or_end: TokenType,
-    // #[pyo3(get)]
-    // step: Duration,
+    at: Option<PyAtModifier>,
+    #[pyo3(get)]
+    range: Duration,
+    #[pyo3(get)]
+    step: Option<Duration>,
+}
+
+impl PySubqueryExpr {
+    fn new(py: Python, expr: SubqueryExpr) -> PyResult<PyObject> {
+        let SubqueryExpr {
+            expr,
+            offset,
+            at,
+            range,
+            step,
+        } = expr;
+        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PySubqueryExpr {
+            expr: PyExpr::create(py, *expr)?,
+            offset: match offset {
+                Some(Offset::Pos(off)) => Some(
+                    Duration::from_std(off).map_err(|e| PyOverflowError::new_err(e.to_string()))?,
+                ),
+                Some(Offset::Neg(off)) => Some(
+                    -Duration::from_std(off)
+                        .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
+                ),
+                None => None,
+            },
+            at: match at {
+                Some(at) => {
+                    let typ = match at {
+                        AtModifier::Start => PyAtModifierType::Start,
+                        AtModifier::End => PyAtModifierType::End,
+                        AtModifier::At(_) => PyAtModifierType::At,
+                    };
+                    Some(PyAtModifier { r#type: typ })
+                }
+                None => None,
+            },
+            range: Duration::from_std(range)
+                .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
+            step: match step {
+                Some(step) => Some(
+                    Duration::from_std(step)
+                        .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
+                ),
+                None => None,
+            },
+        });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
+}
+
+#[pyclass(name = "AtModifier", module = "promql_parser")]
+#[derive(Debug, Clone)]
+pub struct PyAtModifier {
+    #[pyo3(get)]
+    r#type: PyAtModifierType,
+    // at: Option<SystemTime>,
+}
+
+#[pyclass(name = "AtModifierType", module = "promql_parser")]
+#[derive(Debug, Clone, Copy)]
+pub enum PyAtModifierType {
+    Start,
+    End,
+    At,
 }
 
 #[pyclass(extends = PyExpr, name = "NumberLiteral", module = "promql_parser")]
 pub struct PyNumberLiteral {
     #[pyo3(get)]
     val: f64,
-    #[pyo3(get)]
-    span: PySpan,
 }
 
 #[pymethods]
 impl PyNumberLiteral {
     fn __repr__(&self) -> String {
-        format!("NumberLiteral({}, {})", self.val, self.span.__repr__())
-    }
-}
-
-#[pyclass(name = "Span", module = "promql_parser")]
-#[derive(Clone, Copy, Debug)]
-pub struct PySpan {
-    #[pyo3(get)]
-    start: usize,
-    #[pyo3(get)]
-    end: usize,
-}
-
-#[pymethods]
-impl PySpan {
-    fn __repr__(&self) -> String {
-        format!("Span({}, {})", self.start, self.end)
+        format!("NumberLiteral({})", self.val)
     }
 }
 
@@ -272,19 +305,17 @@ impl PySpan {
 pub struct PyStringLiteral {
     #[pyo3(get)]
     val: String,
-    #[pyo3(get)]
-    span: PySpan,
 }
 
 #[pymethods]
 impl PyStringLiteral {
     fn __repr__(&self) -> String {
-        format!("StringLiteral(\"{}\", {})", self.val, self.span.__repr__())
+        format!("StringLiteral(\"{}\")", self.val)
     }
 }
 
 #[pyclass(name = "MatchOp", module = "promql_parser")]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum PyMatchOp {
     Equal,
     NotEqual,
@@ -305,7 +336,7 @@ impl PyMatchOp {
 }
 
 #[pyclass(name = "Matcher", module = "promql_parser")]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct PyMatcher {
     #[pyo3(get)]
     op: PyMatchOp,
@@ -332,9 +363,63 @@ pub struct PyVectorSelector {
     #[pyo3(get)]
     name: Option<String>,
     #[pyo3(get)]
-    start_or_end: Option<TokenType>,
+    label_matchers: HashSet<PyMatcher>,
     #[pyo3(get)]
-    label_matchers: Vec<PyMatcher>,
+    offset: Option<Duration>,
+    #[pyo3(get)]
+    at: Option<PyAtModifier>,
+}
+
+impl PyVectorSelector {
+    fn new(py: Python, expr: VectorSelector) -> PyResult<PyObject> {
+        let VectorSelector {
+            name,
+            label_matchers,
+            offset,
+            at,
+        } = expr;
+        let label_matchers = &label_matchers.matchers;
+        let mut py_matchers = HashSet::with_capacity(label_matchers.len());
+        for matcher in label_matchers {
+            py_matchers.insert(PyMatcher {
+                name: matcher.name.clone(),
+                value: matcher.value.clone(),
+                op: match matcher.op {
+                    promql_parser::label::MatchOp::Equal => PyMatchOp::Equal,
+                    promql_parser::label::MatchOp::NotEqual => PyMatchOp::NotEqual,
+                    promql_parser::label::MatchOp::Re(_) => PyMatchOp::Re,
+                    promql_parser::label::MatchOp::NotRe(_) => PyMatchOp::NotRe,
+                },
+            });
+        }
+
+        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyVectorSelector {
+            name,
+            label_matchers: py_matchers,
+            offset: match offset {
+                Some(Offset::Pos(off)) => Some(
+                    Duration::from_std(off).map_err(|e| PyOverflowError::new_err(e.to_string()))?,
+                ),
+                Some(Offset::Neg(off)) => Some(
+                    -Duration::from_std(off)
+                        .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
+                ),
+                None => None,
+            },
+            at: match at {
+                Some(at) => {
+                    let typ = match at {
+                        AtModifier::Start => PyAtModifierType::Start,
+                        AtModifier::End => PyAtModifierType::End,
+                        AtModifier::At(_) => PyAtModifierType::At,
+                    };
+                    Some(PyAtModifier { r#type: typ })
+                }
+                None => None,
+            },
+        });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
 }
 
 #[pymethods]
@@ -346,9 +431,8 @@ impl PyVectorSelector {
             .map(|m| m.__repr__())
             .collect::<Vec<String>>();
         format!(
-            "VectorSelector(\"{}\", {:?}, [{}])",
+            "VectorSelector(\"{}\", [{}])",
             self.name.as_ref().unwrap_or(&"".to_string()),
-            self.start_or_end,
             matchers.join(", ")
         )
     }
@@ -358,8 +442,24 @@ impl PyVectorSelector {
 pub struct PyMatrixSelector {
     #[pyo3(get)]
     vector_selector: PyObject,
-    // #[pyo3(get)]
-    // range: Duration,
+    #[pyo3(get)]
+    range: Duration,
+}
+
+impl PyMatrixSelector {
+    fn new(py: Python, expr: MatrixSelector) -> PyResult<PyObject> {
+        let MatrixSelector {
+            vector_selector,
+            range,
+        } = expr;
+        let vector_selector = PyVectorSelector::new(py, vector_selector)?;
+        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyMatrixSelector {
+            vector_selector,
+            range: Duration::from_std(range)
+                .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
+        });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
 }
 
 #[pyclass(extends = PyExpr, name = "Call", module = "promql_parser")]
@@ -368,6 +468,26 @@ pub struct PyCall {
     func: PyFunction,
     #[pyo3(get)]
     args: Vec<PyObject>,
+}
+
+impl PyCall {
+    fn new(py: Python, expr: Call) -> PyResult<PyObject> {
+        let Call { func, args } = expr;
+        let func = PyFunction {
+            name: func.name,
+            arg_types: func.arg_types.into_iter().map(|t| t.into()).collect(),
+            variadic: func.variadic,
+            return_type: func.return_type.into(),
+        };
+        let args: Result<Vec<_>, _> = args
+            .args
+            .into_iter()
+            .map(|arg| PyExpr::create(py, *arg))
+            .collect();
+        let initializer =
+            PyClassInitializer::from(PyExpr).add_subclass(PyCall { func, args: args? });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
 }
 
 #[pyclass(name = "ValueType", module = "promql_parser")]
