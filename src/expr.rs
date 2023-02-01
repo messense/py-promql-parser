@@ -16,7 +16,7 @@ pub struct PyExpr;
 impl PyExpr {
     pub fn create(py: Python, expr: Expr) -> PyResult<PyObject> {
         match expr {
-            Expr::Aggregate(agg) => PyAggregateExpr::new(py, agg),
+            Expr::Aggregate(agg) => PyAggregateExpr::create(py, agg),
             Expr::Unary(UnaryExpr { op, expr }) => {
                 let initializer = PyClassInitializer::from(Self).add_subclass(PyUnaryExpr {
                     op,
@@ -24,14 +24,14 @@ impl PyExpr {
                 });
                 Ok(Py::new(py, initializer)?.into_py(py))
             }
-            Expr::Binary(bin) => PyBinaryExpr::new(py, bin),
+            Expr::Binary(bin) => PyBinaryExpr::create(py, bin),
             Expr::Paren(ParenExpr { expr }) => {
                 let initializer = PyClassInitializer::from(Self).add_subclass(PyParenExpr {
                     expr: Self::create(py, *expr)?,
                 });
                 Ok(Py::new(py, initializer)?.into_py(py))
             }
-            Expr::Subquery(subquery) => PySubqueryExpr::new(py, subquery),
+            Expr::Subquery(subquery) => PySubqueryExpr::create(py, subquery),
             Expr::NumberLiteral(NumberLiteral { val }) => {
                 let initializer =
                     PyClassInitializer::from(Self).add_subclass(PyNumberLiteral { val });
@@ -42,9 +42,9 @@ impl PyExpr {
                     PyClassInitializer::from(Self).add_subclass(PyStringLiteral { val });
                 Ok(Py::new(py, initializer)?.into_py(py))
             }
-            Expr::VectorSelector(selector) => PyVectorSelector::new(py, selector),
-            Expr::MatrixSelector(selector) => PyMatrixSelector::new(py, selector),
-            Expr::Call(call) => PyCall::new(py, call),
+            Expr::VectorSelector(selector) => PyVectorSelector::create(py, selector),
+            Expr::MatrixSelector(selector) => PyMatrixSelector::create(py, selector),
+            Expr::Call(call) => PyCall::create(py, call),
         }
     }
 }
@@ -62,7 +62,7 @@ pub struct PyAggregateExpr {
 }
 
 impl PyAggregateExpr {
-    fn new(py: Python, expr: AggregateExpr) -> PyResult<PyObject> {
+    fn create(py: Python, expr: AggregateExpr) -> PyResult<PyObject> {
         let AggregateExpr {
             op,
             expr,
@@ -128,7 +128,7 @@ pub struct PyBinaryExpr {
 }
 
 impl PyBinaryExpr {
-    fn new(py: Python, expr: BinaryExpr) -> PyResult<PyObject> {
+    fn create(py: Python, expr: BinaryExpr) -> PyResult<PyObject> {
         let BinaryExpr {
             op,
             lhs,
@@ -227,7 +227,7 @@ pub struct PySubqueryExpr {
 }
 
 impl PySubqueryExpr {
-    fn new(py: Python, expr: SubqueryExpr) -> PyResult<PyObject> {
+    fn create(py: Python, expr: SubqueryExpr) -> PyResult<PyObject> {
         let SubqueryExpr {
             expr,
             offset,
@@ -371,7 +371,7 @@ pub struct PyVectorSelector {
 }
 
 impl PyVectorSelector {
-    fn new(py: Python, expr: VectorSelector) -> PyResult<PyObject> {
+    fn create(py: Python, expr: VectorSelector) -> PyResult<PyObject> {
         let VectorSelector {
             name,
             label_matchers,
@@ -447,12 +447,12 @@ pub struct PyMatrixSelector {
 }
 
 impl PyMatrixSelector {
-    fn new(py: Python, expr: MatrixSelector) -> PyResult<PyObject> {
+    fn create(py: Python, expr: MatrixSelector) -> PyResult<PyObject> {
         let MatrixSelector {
             vector_selector,
             range,
         } = expr;
-        let vector_selector = PyVectorSelector::new(py, vector_selector)?;
+        let vector_selector = PyVectorSelector::create(py, vector_selector)?;
         let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyMatrixSelector {
             vector_selector,
             range: Duration::from_std(range)
@@ -471,7 +471,7 @@ pub struct PyCall {
 }
 
 impl PyCall {
-    fn new(py: Python, expr: Call) -> PyResult<PyObject> {
+    fn create(py: Python, expr: Call) -> PyResult<PyObject> {
         let Call { func, args } = expr;
         let func = PyFunction {
             name: func.name,

@@ -9,7 +9,7 @@ use self::expr::PyExpr;
 /// Formats the sum of two numbers as string.
 #[pyfunction]
 fn parse(py: Python, input: &str) -> PyResult<PyObject> {
-    let expr = parser::parse(input).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let expr = parser::parse(input).map_err(PyValueError::new_err)?;
     let py_expr = PyExpr::create(py, expr)?;
     Ok(py_expr)
 }
