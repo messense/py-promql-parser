@@ -17,31 +17,12 @@ impl PyExpr {
     pub fn create(py: Python, expr: Expr) -> PyResult<PyObject> {
         match expr {
             Expr::Aggregate(agg) => PyAggregateExpr::create(py, agg),
-            Expr::Unary(UnaryExpr { op, expr }) => {
-                let initializer = PyClassInitializer::from(Self).add_subclass(PyUnaryExpr {
-                    op,
-                    expr: Self::create(py, *expr)?,
-                });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
+            Expr::Unary(expr) => PyUnaryExpr::create(py, expr),
             Expr::Binary(bin) => PyBinaryExpr::create(py, bin),
-            Expr::Paren(ParenExpr { expr }) => {
-                let initializer = PyClassInitializer::from(Self).add_subclass(PyParenExpr {
-                    expr: Self::create(py, *expr)?,
-                });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
+            Expr::Paren(expr) => PyParenExpr::create(py, expr),
             Expr::Subquery(subquery) => PySubqueryExpr::create(py, subquery),
-            Expr::NumberLiteral(NumberLiteral { val }) => {
-                let initializer =
-                    PyClassInitializer::from(Self).add_subclass(PyNumberLiteral { val });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
-            Expr::StringLiteral(StringLiteral { val }) => {
-                let initializer =
-                    PyClassInitializer::from(Self).add_subclass(PyStringLiteral { val });
-                Ok(Py::new(py, initializer)?.into_py(py))
-            }
+            Expr::NumberLiteral(lit) => PyNumberLiteral::create(py, lit),
+            Expr::StringLiteral(lit) => PyStringLiteral::create(py, lit),
             Expr::VectorSelector(selector) => PyVectorSelector::create(py, selector),
             Expr::MatrixSelector(selector) => PyMatrixSelector::create(py, selector),
             Expr::Call(call) => PyCall::create(py, call),
@@ -113,6 +94,17 @@ pub struct PyUnaryExpr {
     op: TokenType,
     #[pyo3(get)]
     expr: PyObject,
+}
+
+impl PyUnaryExpr {
+    fn create(py: Python, expr: UnaryExpr) -> PyResult<PyObject> {
+        let UnaryExpr { op, expr } = expr;
+        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyUnaryExpr {
+            op,
+            expr: PyExpr::create(py, *expr)?,
+        });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
 }
 
 #[pyclass(extends = PyExpr, name = "BinaryExpr", module = "promql_parser")]
@@ -212,6 +204,16 @@ pub struct PyParenExpr {
     expr: PyObject,
 }
 
+impl PyParenExpr {
+    fn create(py: Python, expr: ParenExpr) -> PyResult<PyObject> {
+        let ParenExpr { expr } = expr;
+        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyParenExpr {
+            expr: PyExpr::create(py, *expr)?,
+        });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
+}
+
 #[pyclass(extends = PyExpr, name = "SubqueryExpr", module = "promql_parser")]
 pub struct PySubqueryExpr {
     #[pyo3(get)]
@@ -294,6 +296,14 @@ pub struct PyNumberLiteral {
     val: f64,
 }
 
+impl PyNumberLiteral {
+    fn create(py: Python, expr: NumberLiteral) -> PyResult<PyObject> {
+        let NumberLiteral { val } = expr;
+        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyNumberLiteral { val });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
+}
+
 #[pymethods]
 impl PyNumberLiteral {
     fn __repr__(&self) -> String {
@@ -305,6 +315,14 @@ impl PyNumberLiteral {
 pub struct PyStringLiteral {
     #[pyo3(get)]
     val: String,
+}
+
+impl PyStringLiteral {
+    fn create(py: Python, expr: StringLiteral) -> PyResult<PyObject> {
+        let StringLiteral { val } = expr;
+        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyStringLiteral { val });
+        Ok(Py::new(py, initializer)?.into_py(py))
+    }
 }
 
 #[pymethods]
