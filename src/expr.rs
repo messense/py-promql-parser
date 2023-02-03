@@ -91,16 +91,13 @@ pub enum PyAggModifierType {
 #[pyclass(extends = PyExpr, name = "UnaryExpr", module = "promql_parser")]
 pub struct PyUnaryExpr {
     #[pyo3(get)]
-    op: TokenType,
-    #[pyo3(get)]
     expr: PyObject,
 }
 
 impl PyUnaryExpr {
     fn create(py: Python, expr: UnaryExpr) -> PyResult<PyObject> {
-        let UnaryExpr { op, expr } = expr;
+        let UnaryExpr { expr } = expr;
         let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyUnaryExpr {
-            op,
             expr: PyExpr::create(py, *expr)?,
         });
         Ok(Py::new(py, initializer)?.into_py(py))
