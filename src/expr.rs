@@ -41,6 +41,10 @@ impl PyExpr {
         let py_expr = Self::create(py, expr)?;
         Ok(py_expr)
     }
+
+    fn __repr__(&self) -> String {
+        format!("{:#?}", self.expr)
+    }
 }
 
 #[pyclass(extends = PyExpr, name = "AggregateExpr", module = "promql_parser")]
@@ -348,13 +352,6 @@ impl PyNumberLiteral {
     }
 }
 
-#[pymethods]
-impl PyNumberLiteral {
-    fn __repr__(&self) -> String {
-        format!("NumberLiteral({})", self.val)
-    }
-}
-
 #[pyclass(extends = PyExpr, name = "StringLiteral", module = "promql_parser")]
 pub struct PyStringLiteral {
     #[pyo3(get)]
@@ -369,13 +366,6 @@ impl PyStringLiteral {
         let StringLiteral { val } = expr;
         let initializer = PyClassInitializer::from(parent).add_subclass(PyStringLiteral { val });
         Ok(Py::new(py, initializer)?.into_py(py))
-    }
-}
-
-#[pymethods]
-impl PyStringLiteral {
-    fn __repr__(&self) -> String {
-        format!("StringLiteral(\"{}\")", self.val)
     }
 }
 
@@ -487,22 +477,6 @@ impl PyVectorSelector {
             },
         });
         Ok(Py::new(py, initializer)?.into_py(py))
-    }
-}
-
-#[pymethods]
-impl PyVectorSelector {
-    fn __repr__(&self) -> String {
-        let matchers = self
-            .label_matchers
-            .iter()
-            .map(|m| m.__repr__())
-            .collect::<Vec<String>>();
-        format!(
-            "VectorSelector(\"{}\", [{}])",
-            self.name.as_ref().unwrap_or(&"".to_string()),
-            matchers.join(", ")
-        )
     }
 }
 
