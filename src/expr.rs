@@ -11,7 +11,10 @@ use pyo3::exceptions::PyOverflowError;
 use pyo3::prelude::*;
 
 #[pyclass(subclass, name = "Expr", module = "promql_parser")]
-pub struct PyExpr;
+#[derive(Debug, Clone)]
+pub struct PyExpr {
+    pub expr: Expr,
+}
 
 impl PyExpr {
     pub fn create(py: Python, expr: Expr) -> PyResult<PyObject> {
@@ -44,13 +47,16 @@ pub struct PyAggregateExpr {
 
 impl PyAggregateExpr {
     fn create(py: Python, expr: AggregateExpr) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::Aggregate(expr.clone()),
+        };
         let AggregateExpr {
             op,
             expr,
             param,
             modifier,
         } = expr;
-        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyAggregateExpr {
+        let initializer = PyClassInitializer::from(parent).add_subclass(PyAggregateExpr {
             op: op.into(),
             expr: PyExpr::create(py, *expr)?,
             param: match param {
@@ -108,8 +114,11 @@ pub struct PyUnaryExpr {
 
 impl PyUnaryExpr {
     fn create(py: Python, expr: UnaryExpr) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::Unary(expr.clone()),
+        };
         let UnaryExpr { expr } = expr;
-        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyUnaryExpr {
+        let initializer = PyClassInitializer::from(parent).add_subclass(PyUnaryExpr {
             expr: PyExpr::create(py, *expr)?,
         });
         Ok(Py::new(py, initializer)?.into_py(py))
@@ -130,6 +139,9 @@ pub struct PyBinaryExpr {
 
 impl PyBinaryExpr {
     fn create(py: Python, expr: BinaryExpr) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::Binary(expr.clone()),
+        };
         let BinaryExpr {
             op,
             lhs,
@@ -154,7 +166,7 @@ impl PyBinaryExpr {
             }),
             None => None,
         };
-        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyBinaryExpr {
+        let initializer = PyClassInitializer::from(parent).add_subclass(PyBinaryExpr {
             op: op.into(),
             lhs: PyExpr::create(py, *lhs)?,
             rhs: PyExpr::create(py, *rhs)?,
@@ -219,8 +231,11 @@ pub struct PyParenExpr {
 
 impl PyParenExpr {
     fn create(py: Python, expr: ParenExpr) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::Paren(expr.clone()),
+        };
         let ParenExpr { expr } = expr;
-        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyParenExpr {
+        let initializer = PyClassInitializer::from(parent).add_subclass(PyParenExpr {
             expr: PyExpr::create(py, *expr)?,
         });
         Ok(Py::new(py, initializer)?.into_py(py))
@@ -243,6 +258,9 @@ pub struct PySubqueryExpr {
 
 impl PySubqueryExpr {
     fn create(py: Python, expr: SubqueryExpr) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::Subquery(expr.clone()),
+        };
         let SubqueryExpr {
             expr,
             offset,
@@ -250,7 +268,7 @@ impl PySubqueryExpr {
             range,
             step,
         } = expr;
-        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PySubqueryExpr {
+        let initializer = PyClassInitializer::from(parent).add_subclass(PySubqueryExpr {
             expr: PyExpr::create(py, *expr)?,
             offset: match offset {
                 Some(Offset::Pos(off)) => Some(
@@ -311,8 +329,11 @@ pub struct PyNumberLiteral {
 
 impl PyNumberLiteral {
     fn create(py: Python, expr: NumberLiteral) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::NumberLiteral(expr.clone()),
+        };
         let NumberLiteral { val } = expr;
-        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyNumberLiteral { val });
+        let initializer = PyClassInitializer::from(parent).add_subclass(PyNumberLiteral { val });
         Ok(Py::new(py, initializer)?.into_py(py))
     }
 }
@@ -332,8 +353,11 @@ pub struct PyStringLiteral {
 
 impl PyStringLiteral {
     fn create(py: Python, expr: StringLiteral) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::StringLiteral(expr.clone()),
+        };
         let StringLiteral { val } = expr;
-        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyStringLiteral { val });
+        let initializer = PyClassInitializer::from(parent).add_subclass(PyStringLiteral { val });
         Ok(Py::new(py, initializer)?.into_py(py))
     }
 }
@@ -403,6 +427,9 @@ pub struct PyVectorSelector {
 
 impl PyVectorSelector {
     fn create(py: Python, expr: VectorSelector) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::VectorSelector(expr.clone()),
+        };
         let VectorSelector {
             name,
             matchers,
@@ -424,7 +451,7 @@ impl PyVectorSelector {
             });
         }
 
-        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyVectorSelector {
+        let initializer = PyClassInitializer::from(parent).add_subclass(PyVectorSelector {
             name,
             label_matchers: py_matchers,
             offset: match offset {
@@ -479,12 +506,15 @@ pub struct PyMatrixSelector {
 
 impl PyMatrixSelector {
     fn create(py: Python, expr: MatrixSelector) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::MatrixSelector(expr.clone()),
+        };
         let MatrixSelector {
             vector_selector,
             range,
         } = expr;
         let vector_selector = PyVectorSelector::create(py, vector_selector)?;
-        let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyMatrixSelector {
+        let initializer = PyClassInitializer::from(parent).add_subclass(PyMatrixSelector {
             vector_selector,
             range: Duration::from_std(range)
                 .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
@@ -503,6 +533,9 @@ pub struct PyCall {
 
 impl PyCall {
     fn create(py: Python, expr: Call) -> PyResult<PyObject> {
+        let parent = PyExpr {
+            expr: Expr::Call(expr.clone()),
+        };
         let Call { func, args } = expr;
         let func = PyFunction {
             name: func.name,
@@ -516,7 +549,7 @@ impl PyCall {
             .map(|arg| PyExpr::create(py, *arg))
             .collect();
         let initializer =
-            PyClassInitializer::from(PyExpr).add_subclass(PyCall { func, args: args? });
+            PyClassInitializer::from(parent).add_subclass(PyCall { func, args: args? });
         Ok(Py::new(py, initializer)?.into_py(py))
     }
 }

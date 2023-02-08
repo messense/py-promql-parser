@@ -6,10 +6,17 @@ mod expr;
 
 use self::expr::PyExpr;
 
-/// Formats the sum of two numbers as string.
+/// Parse the input PromQL and return the AST.
 #[pyfunction]
 fn parse(py: Python, input: &str) -> PyResult<PyObject> {
     let expr = parser::parse(input).map_err(PyValueError::new_err)?;
+    let py_expr = PyExpr::create(py, expr)?;
+    Ok(py_expr)
+}
+
+#[pyfunction]
+fn check_ast(py: Python, ast: PyExpr) -> PyResult<PyObject> {
+    let expr = parser::check_ast(ast.expr).map_err(PyValueError::new_err)?;
     let py_expr = PyExpr::create(py, expr)?;
     Ok(py_expr)
 }
@@ -42,5 +49,6 @@ fn promql_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<expr::PyValueType>()?;
     m.add_class::<expr::PyFunction>()?;
     m.add_function(wrap_pyfunction!(parse, m)?)?;
+    m.add_function(wrap_pyfunction!(check_ast, m)?)?;
     Ok(())
 }
