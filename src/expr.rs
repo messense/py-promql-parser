@@ -33,13 +33,13 @@ impl PyExpr {
 #[pyclass(extends = PyExpr, name = "AggregateExpr", module = "promql_parser")]
 pub struct PyAggregateExpr {
     #[pyo3(get)]
-    op: TokenType,
+    op: PyTokenType,
     #[pyo3(get)]
     expr: PyObject,
     #[pyo3(get)]
     param: Option<PyObject>,
     #[pyo3(get)]
-    grouping: PyAggModifier,
+    modifier: PyAggModifier,
 }
 
 impl PyAggregateExpr {
@@ -48,16 +48,16 @@ impl PyAggregateExpr {
             op,
             expr,
             param,
-            grouping,
+            modifier,
         } = expr;
         let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyAggregateExpr {
-            op,
+            op: op.into(),
             expr: PyExpr::create(py, *expr)?,
             param: match param {
                 Some(param) => Some(PyExpr::create(py, *param)?),
                 None => None,
             },
-            grouping: match grouping {
+            modifier: match modifier {
                 AggModifier::By(labels) => PyAggModifier {
                     r#type: PyAggModifierType::By,
                     labels,
@@ -69,6 +69,18 @@ impl PyAggregateExpr {
             },
         });
         Ok(Py::new(py, initializer)?.into_py(py))
+    }
+}
+
+#[pyclass(name = "TokenType", module = "promql_parser")]
+#[derive(Debug, Clone, Copy)]
+pub struct PyTokenType {
+    r#type: TokenType,
+}
+
+impl From<TokenType> for PyTokenType {
+    fn from(token_type: TokenType) -> Self {
+        PyTokenType { r#type: token_type }
     }
 }
 
@@ -107,13 +119,13 @@ impl PyUnaryExpr {
 #[pyclass(extends = PyExpr, name = "BinaryExpr", module = "promql_parser")]
 pub struct PyBinaryExpr {
     #[pyo3(get)]
-    op: TokenType,
+    op: PyTokenType,
     #[pyo3(get)]
     lhs: PyObject,
     #[pyo3(get)]
     rhs: PyObject,
     #[pyo3(get)]
-    matching: PyBinModifier,
+    modifier: Option<PyBinModifier>,
 }
 
 impl PyBinaryExpr {
@@ -122,27 +134,31 @@ impl PyBinaryExpr {
             op,
             lhs,
             rhs,
-            matching,
+            modifier,
         } = expr;
-        let matching = PyBinModifier {
-            card: matching.card.into(),
-            matching: match matching.matching {
-                VectorMatchModifier::On(labels) => PyVectorMatchModifier {
-                    r#type: PyVectorMatchModifierType::On,
-                    labels,
+        let py_modifier = match modifier {
+            Some(modifier) => Some(PyBinModifier {
+                card: modifier.card.into(),
+                matching: match modifier.matching {
+                    Some(VectorMatchModifier::On(labels)) => Some(PyVectorMatchModifier {
+                        r#type: PyVectorMatchModifierType::On,
+                        labels,
+                    }),
+                    Some(VectorMatchModifier::Ignoring(labels)) => Some(PyVectorMatchModifier {
+                        r#type: PyVectorMatchModifierType::Ignoring,
+                        labels,
+                    }),
+                    None => None,
                 },
-                VectorMatchModifier::Ignoring(labels) => PyVectorMatchModifier {
-                    r#type: PyVectorMatchModifierType::Ignoring,
-                    labels,
-                },
-            },
-            return_bool: matching.return_bool,
+                return_bool: modifier.return_bool,
+            }),
+            None => None,
         };
         let initializer = PyClassInitializer::from(PyExpr).add_subclass(PyBinaryExpr {
-            op,
+            op: op.into(),
             lhs: PyExpr::create(py, *lhs)?,
             rhs: PyExpr::create(py, *rhs)?,
-            matching,
+            modifier: py_modifier,
         });
         Ok(Py::new(py, initializer)?.into_py(py))
     }
@@ -154,7 +170,7 @@ pub struct PyBinModifier {
     #[pyo3(get)]
     card: PyVectorMatchCardinality,
     #[pyo3(get)]
-    matching: PyVectorMatchModifier,
+    matching: Option<PyVectorMatchModifier>,
     #[pyo3(get)]
     return_bool: bool,
 }
@@ -181,7 +197,7 @@ pub enum PyVectorMatchCardinality {
     OneToOne,
     ManyToOne,
     OneToMany,
-    // ManyToMany,
+    ManyToMany,
 }
 
 impl From<VectorMatchCardinality> for PyVectorMatchCardinality {
@@ -190,7 +206,7 @@ impl From<VectorMatchCardinality> for PyVectorMatchCardinality {
             VectorMatchCardinality::OneToOne => PyVectorMatchCardinality::OneToOne,
             VectorMatchCardinality::ManyToOne(_) => PyVectorMatchCardinality::ManyToOne,
             VectorMatchCardinality::OneToMany(_) => PyVectorMatchCardinality::OneToMany,
-            // VectorMatchCardinality::ManyToMany => PyVectorMatchCardinality::ManyToMany,
+            VectorMatchCardinality::ManyToMany => PyVectorMatchCardinality::ManyToMany,
         }
     }
 }
@@ -389,13 +405,13 @@ impl PyVectorSelector {
     fn create(py: Python, expr: VectorSelector) -> PyResult<PyObject> {
         let VectorSelector {
             name,
-            label_matchers,
+            matchers,
             offset,
             at,
         } = expr;
-        let label_matchers = &label_matchers.matchers;
-        let mut py_matchers = HashSet::with_capacity(label_matchers.len());
-        for matcher in label_matchers {
+        let matchers = &matchers.matchers;
+        let mut py_matchers = HashSet::with_capacity(matchers.len());
+        for matcher in matchers {
             py_matchers.insert(PyMatcher {
                 name: matcher.name.clone(),
                 value: matcher.value.clone(),

@@ -19,6 +19,7 @@ fn parse(py: Python, input: &str) -> PyResult<PyObject> {
 fn promql_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyExpr>()?;
     m.add_class::<expr::PyAggregateExpr>()?;
+    m.add_class::<expr::PyTokenType>()?;
     m.add_class::<expr::PyAggModifier>()?;
     m.add_class::<expr::PyAggModifierType>()?;
     m.add_class::<expr::PyUnaryExpr>()?;
