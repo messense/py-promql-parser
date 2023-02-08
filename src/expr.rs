@@ -3,11 +3,11 @@ use std::collections::HashSet;
 use chrono::Duration;
 use promql_parser::label::Labels;
 use promql_parser::parser::{
-    AggModifier, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, MatrixSelector, NumberLiteral,
-    Offset, ParenExpr, StringLiteral, SubqueryExpr, TokenType, UnaryExpr, ValueType,
+    self, AggModifier, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, MatrixSelector,
+    NumberLiteral, Offset, ParenExpr, StringLiteral, SubqueryExpr, TokenType, UnaryExpr, ValueType,
     VectorMatchCardinality, VectorMatchModifier, VectorSelector,
 };
-use pyo3::exceptions::PyOverflowError;
+use pyo3::exceptions::{PyOverflowError, PyValueError};
 use pyo3::prelude::*;
 
 #[pyclass(subclass, name = "Expr", module = "promql_parser")]
@@ -30,6 +30,16 @@ impl PyExpr {
             Expr::MatrixSelector(selector) => PyMatrixSelector::create(py, selector),
             Expr::Call(call) => PyCall::create(py, call),
         }
+    }
+}
+
+#[pymethods]
+impl PyExpr {
+    #[staticmethod]
+    pub fn parse(py: Python, input: &str) -> PyResult<PyObject> {
+        let expr = parser::parse(input).map_err(PyValueError::new_err)?;
+        let py_expr = Self::create(py, expr)?;
+        Ok(py_expr)
     }
 }
 

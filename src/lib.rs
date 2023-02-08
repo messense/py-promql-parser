@@ -9,9 +9,7 @@ use self::expr::PyExpr;
 /// Parse the input PromQL and return the AST.
 #[pyfunction]
 fn parse(py: Python, input: &str) -> PyResult<PyObject> {
-    let expr = parser::parse(input).map_err(PyValueError::new_err)?;
-    let py_expr = PyExpr::create(py, expr)?;
-    Ok(py_expr)
+    PyExpr::parse(py, input)
 }
 
 #[pyfunction]
