@@ -2,6 +2,10 @@
 name = "py-promql-parser"
 version = "0.1.0"
 edition = "2021"
+description = "PromQL Parser for Python"
+license = "MIT"
+repository = "https://github.com/messense/py-promql-parser"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
@@ -11,4 +15,4 @@ crate-type = ["cdylib"]
 [dependencies]
 chrono = "0.4.23"
 promql-parser = { git = "https://github.com/GreptimeTeam/promql-parser.git", branch = "develop" }
-pyo3 = { version = "0.18.0", features = ["chrono", "extension-module"] }
+pyo3 = { version = "0.18.1", features = ["chrono", "extension-module"] }
