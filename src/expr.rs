@@ -56,7 +56,7 @@ pub struct PyAggregateExpr {
     #[pyo3(get)]
     param: Option<PyObject>,
     #[pyo3(get)]
-    modifier: PyAggModifier,
+    modifier: Option<PyAggModifier>,
 }
 
 impl PyAggregateExpr {
@@ -78,14 +78,15 @@ impl PyAggregateExpr {
                 None => None,
             },
             modifier: match modifier {
-                AggModifier::By(labels) => PyAggModifier {
+                Some(AggModifier::By(labels)) => Some(PyAggModifier {
                     r#type: PyAggModifierType::By,
                     labels,
-                },
-                AggModifier::Without(labels) => PyAggModifier {
+                }),
+                Some(AggModifier::Without(labels)) => Some(PyAggModifier {
                     r#type: PyAggModifierType::Without,
                     labels,
-                },
+                }),
+                None => None,
             },
         });
         Ok(Py::new(py, initializer)?.into_py(py))
