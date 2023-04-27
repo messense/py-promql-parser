@@ -1,4 +1,4 @@
-use ::promql_parser::parser;
+use ::promql_parser::parser::ast;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -14,7 +14,7 @@ fn parse(py: Python, input: &str) -> PyResult<PyObject> {
 
 #[pyfunction]
 fn check_ast(py: Python, ast: PyExpr) -> PyResult<PyObject> {
-    let expr = parser::check_ast(ast.expr).map_err(PyValueError::new_err)?;
+    let expr = ast::check_ast(ast.expr).map_err(PyValueError::new_err)?;
     let py_expr = PyExpr::create(py, expr)?;
     Ok(py_expr)
 }
@@ -30,8 +30,8 @@ fn promql_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<expr::PyUnaryExpr>()?;
     m.add_class::<expr::PyBinaryExpr>()?;
     m.add_class::<expr::PyBinModifier>()?;
-    m.add_class::<expr::PyVectorMatchModifier>()?;
-    m.add_class::<expr::PyVectorMatchModifierType>()?;
+    m.add_class::<expr::PyLabelModifier>()?;
+    m.add_class::<expr::PyLabelModifierType>()?;
     m.add_class::<expr::PyVectorMatchCardinality>()?;
     m.add_class::<expr::PyParenExpr>()?;
     m.add_class::<expr::PySubqueryExpr>()?;

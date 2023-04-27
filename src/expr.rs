@@ -3,11 +3,11 @@ use std::collections::HashSet;
 use chrono::Duration;
 use promql_parser::label::Labels;
 use promql_parser::parser::{
-    self, AggModifier, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, MatrixSelector,
+    self, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, LabelModifier, MatrixSelector,
     NumberLiteral, Offset, ParenExpr, StringLiteral, SubqueryExpr, TokenType, UnaryExpr, ValueType,
-    VectorMatchCardinality, VectorMatchModifier, VectorSelector,
+    VectorMatchCardinality, VectorSelector,
 };
-use pyo3::exceptions::{PyOverflowError, PyValueError};
+use pyo3::exceptions::{PyNotImplementedError, PyOverflowError, PyValueError};
 use pyo3::prelude::*;
 
 #[pyclass(subclass, name = "Expr", module = "promql_parser")]
@@ -29,6 +29,7 @@ impl PyExpr {
             Expr::VectorSelector(selector) => PyVectorSelector::create(py, selector),
             Expr::MatrixSelector(selector) => PyMatrixSelector::create(py, selector),
             Expr::Call(call) => PyCall::create(py, call),
+            Expr::Extension(_ext) => Err(PyNotImplementedError::new_err("extension unimplemented")),
         }
     }
 }
@@ -78,11 +79,11 @@ impl PyAggregateExpr {
                 None => None,
             },
             modifier: match modifier {
-                Some(AggModifier::By(labels)) => Some(PyAggModifier {
+                Some(LabelModifier::Include(labels)) => Some(PyAggModifier {
                     r#type: PyAggModifierType::By,
                     labels,
                 }),
-                Some(AggModifier::Without(labels)) => Some(PyAggModifier {
+                Some(LabelModifier::Exclude(labels)) => Some(PyAggModifier {
                     r#type: PyAggModifierType::Without,
                     labels,
                 }),
@@ -167,12 +168,12 @@ impl PyBinaryExpr {
             Some(modifier) => Some(PyBinModifier {
                 card: modifier.card.into(),
                 matching: match modifier.matching {
-                    Some(VectorMatchModifier::On(labels)) => Some(PyVectorMatchModifier {
-                        r#type: PyVectorMatchModifierType::On,
+                    Some(LabelModifier::Include(labels)) => Some(PyLabelModifier {
+                        r#type: PyLabelModifierType::Include,
                         labels,
                     }),
-                    Some(VectorMatchModifier::Ignoring(labels)) => Some(PyVectorMatchModifier {
-                        r#type: PyVectorMatchModifierType::Ignoring,
+                    Some(LabelModifier::Exclude(labels)) => Some(PyLabelModifier {
+                        r#type: PyLabelModifierType::Exclude,
                         labels,
                     }),
                     None => None,
@@ -197,25 +198,25 @@ pub struct PyBinModifier {
     #[pyo3(get)]
     card: PyVectorMatchCardinality,
     #[pyo3(get)]
-    matching: Option<PyVectorMatchModifier>,
+    matching: Option<PyLabelModifier>,
     #[pyo3(get)]
     return_bool: bool,
 }
 
-#[pyclass(name = "VectorMatchModifier", module = "promql_parser")]
+#[pyclass(name = "LabelModifier", module = "promql_parser")]
 #[derive(Debug, Clone)]
-pub struct PyVectorMatchModifier {
+pub struct PyLabelModifier {
     #[pyo3(get)]
-    r#type: PyVectorMatchModifierType,
+    r#type: PyLabelModifierType,
     #[pyo3(get)]
     labels: Labels,
 }
 
-#[pyclass(name = "VectorMatchModifierType", module = "promql_parser")]
+#[pyclass(name = "LabelModifierType", module = "promql_parser")]
 #[derive(Debug, Clone, Copy)]
-pub enum PyVectorMatchModifierType {
-    On,
-    Ignoring,
+pub enum PyLabelModifierType {
+    Include,
+    Exclude,
 }
 
 #[pyclass(name = "VectorMatchCardinality", module = "promql_parser")]
