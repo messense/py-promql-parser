@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use chrono::Duration;
-use promql_parser::label::Labels;
+use promql_parser::label::Label;
 use promql_parser::parser::{
     self, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, LabelModifier, MatrixSelector,
     NumberLiteral, Offset, ParenExpr, StringLiteral, SubqueryExpr, TokenType, UnaryExpr, ValueType,
@@ -81,11 +81,11 @@ impl PyAggregateExpr {
             modifier: match modifier {
                 Some(LabelModifier::Include(labels)) => Some(PyAggModifier {
                     r#type: PyAggModifierType::By,
-                    labels,
+                    labels: labels.labels,
                 }),
                 Some(LabelModifier::Exclude(labels)) => Some(PyAggModifier {
                     r#type: PyAggModifierType::Without,
-                    labels,
+                    labels: labels.labels,
                 }),
                 None => None,
             },
@@ -112,7 +112,7 @@ pub struct PyAggModifier {
     #[pyo3(get)]
     r#type: PyAggModifierType,
     #[pyo3(get)]
-    labels: Labels,
+    labels: Vec<Label>,
 }
 
 #[pyclass(name = "AggModifierType", module = "promql_parser")]
@@ -170,11 +170,11 @@ impl PyBinaryExpr {
                 matching: match modifier.matching {
                     Some(LabelModifier::Include(labels)) => Some(PyLabelModifier {
                         r#type: PyLabelModifierType::Include,
-                        labels,
+                        labels: labels.labels,
                     }),
                     Some(LabelModifier::Exclude(labels)) => Some(PyLabelModifier {
                         r#type: PyLabelModifierType::Exclude,
-                        labels,
+                        labels: labels.labels,
                     }),
                     None => None,
                 },
@@ -209,7 +209,7 @@ pub struct PyLabelModifier {
     #[pyo3(get)]
     r#type: PyLabelModifierType,
     #[pyo3(get)]
-    labels: Labels,
+    labels: Vec<Label>,
 }
 
 #[pyclass(name = "LabelModifierType", module = "promql_parser")]
@@ -495,11 +495,8 @@ impl PyMatrixSelector {
         let parent = PyExpr {
             expr: Expr::MatrixSelector(expr.clone()),
         };
-        let MatrixSelector {
-            vector_selector,
-            range,
-        } = expr;
-        let vector_selector = PyVectorSelector::create(py, vector_selector)?;
+        let MatrixSelector { vs, range } = expr;
+        let vector_selector = PyVectorSelector::create(py, vs)?;
         let initializer = PyClassInitializer::from(parent).add_subclass(PyMatrixSelector {
             vector_selector,
             range: Duration::from_std(range)
