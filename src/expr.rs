@@ -43,6 +43,10 @@ impl PyExpr {
         Ok(py_expr)
     }
 
+    fn prettify(&self) -> String {
+        self.expr.prettify()
+    }
+
     fn __repr__(&self) -> String {
         format!("{:#?}", self.expr)
     }

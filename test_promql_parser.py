@@ -9,6 +9,6 @@ print(parse('1'))
 
 print(parse('1 + 1'))
 
-print(parse('1 + 2/(3*1)'))
+print(parse('1 + 2/(3*1)').prettify())
 
 print(parse('+some_metric'))
