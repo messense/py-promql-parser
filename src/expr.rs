@@ -3,9 +3,9 @@ use std::collections::HashSet;
 use chrono::Duration;
 use promql_parser::label::Label;
 use promql_parser::parser::{
-    self, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, LabelModifier, MatrixSelector,
-    NumberLiteral, Offset, ParenExpr, StringLiteral, SubqueryExpr, TokenType, UnaryExpr, ValueType,
-    VectorMatchCardinality, VectorSelector,
+    self, token::TokenType, value::ValueType, AggregateExpr, AtModifier, BinaryExpr, Call, Expr,
+    LabelModifier, MatrixSelector, NumberLiteral, Offset, ParenExpr, StringLiteral, SubqueryExpr,
+    UnaryExpr, VectorMatchCardinality, VectorSelector,
 };
 use pyo3::exceptions::{PyNotImplementedError, PyOverflowError, PyValueError};
 use pyo3::prelude::*;

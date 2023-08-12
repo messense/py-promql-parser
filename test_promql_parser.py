@@ -1,7 +1,6 @@
-from promql_parser import parse, check_ast
+from promql_parser import parse
 
 l = 'prometheus_http_requests_total{code="200", job="prometheus"}'
-print(check_ast(parse(l)))
 
 print(parse('min_over_time(rate(foo{bar="baz"}[2s])[5m:] @ 1603775091)[4m:3s]'))
 

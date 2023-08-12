@@ -1,5 +1,3 @@
-use ::promql_parser::parser::ast;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 mod expr;
@@ -10,13 +8,6 @@ use self::expr::PyExpr;
 #[pyfunction]
 fn parse(py: Python, input: &str) -> PyResult<PyObject> {
     PyExpr::parse(py, input)
-}
-
-#[pyfunction]
-fn check_ast(py: Python, ast: PyExpr) -> PyResult<PyObject> {
-    let expr = ast::check_ast(ast.expr).map_err(PyValueError::new_err)?;
-    let py_expr = PyExpr::create(py, expr)?;
-    Ok(py_expr)
 }
 
 /// A Python module implemented in Rust.
@@ -47,6 +38,5 @@ fn promql_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<expr::PyValueType>()?;
     m.add_class::<expr::PyFunction>()?;
     m.add_function(wrap_pyfunction!(parse, m)?)?;
-    m.add_function(wrap_pyfunction!(check_ast, m)?)?;
     Ok(())
 }
