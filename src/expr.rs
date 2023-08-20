@@ -110,6 +110,13 @@ impl From<TokenType> for PyTokenType {
     }
 }
 
+#[pymethods]
+impl PyTokenType {
+    fn __str__(&self) -> String {
+        format!("{}", self.r#type)
+    }
+}
+
 #[pyclass(name = "AggModifier", module = "promql_parser")]
 #[derive(Debug, Clone)]
 pub struct PyAggModifier {
