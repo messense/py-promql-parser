@@ -1,4 +1,6 @@
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::{PyDelta, PyDeltaAccess};
 
 mod expr;
 
@@ -8,6 +10,28 @@ use self::expr::PyExpr;
 #[pyfunction]
 fn parse(py: Python, input: &str) -> PyResult<PyObject> {
     PyExpr::parse(py, input)
+}
+
+#[pyfunction]
+fn parse_duration<'p>(py: Python<'p>, duration: &str) -> PyResult<&'p PyDelta> {
+    let duration =
+        ::promql_parser::util::duration::parse_duration(duration).map_err(PyValueError::new_err)?;
+    PyDelta::new(
+        py,
+        0,
+        duration.as_secs().try_into().unwrap(),
+        duration.subsec_millis().try_into().unwrap(),
+        false,
+    )
+}
+
+#[pyfunction]
+fn display_duration(delta: &PyDelta) -> String {
+    let duration = std::time::Duration::new(
+        delta.get_days() as u64 * 24 * 60 * 60 + delta.get_seconds() as u64,
+        delta.get_microseconds() as u32 * 1000,
+    );
+    ::promql_parser::util::duration::display_duration(&duration)
 }
 
 /// A Python module implemented in Rust.
@@ -38,5 +62,7 @@ fn promql_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<expr::PyValueType>()?;
     m.add_class::<expr::PyFunction>()?;
     m.add_function(wrap_pyfunction!(parse, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_duration, m)?)?;
+    m.add_function(wrap_pyfunction!(display_duration, m)?)?;
     Ok(())
 }
