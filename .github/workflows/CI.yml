@@ -37,7 +37,7 @@ jobs:
       with:
           target: ${{ matrix.target }}
           manylinux: musllinux_1_2
-          args: --release --sdist -o dist --find-interpreter
+          args: --release -o dist --find-interpreter
           sccache: true
     - name: Upload wheels
       uses: actions/upload-artifact@v3
@@ -60,7 +60,7 @@ jobs:
       with:
           target: ${{ matrix.target }}
           manylinux: musllinux_1_2
-          args: --release --sdist -o dist --find-interpreter
+          args: --release -o dist --find-interpreter
           sccache: true
     - name: Upload wheels
       uses: actions/upload-artifact@v3
