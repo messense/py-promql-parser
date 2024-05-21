@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use chrono::Duration;
 use promql_parser::label::Label;
 use promql_parser::parser::{
@@ -426,12 +424,36 @@ impl PyMatcher {
     }
 }
 
+impl From<promql_parser::label::Matcher> for PyMatcher {
+    fn from(matcher: promql_parser::label::Matcher) -> Self {
+        PyMatcher {
+            name: matcher.name,
+            value: matcher.value,
+            op: match matcher.op {
+                promql_parser::label::MatchOp::Equal => PyMatchOp::Equal,
+                promql_parser::label::MatchOp::NotEqual => PyMatchOp::NotEqual,
+                promql_parser::label::MatchOp::Re(_) => PyMatchOp::Re,
+                promql_parser::label::MatchOp::NotRe(_) => PyMatchOp::NotRe,
+            },
+        }
+    }
+}
+
+#[pyclass(name = "Matchers", module = "promql_parser")]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct PyMatchers {
+    #[pyo3(get)]
+    matchers: Vec<PyMatcher>,
+    #[pyo3(get)]
+    or_matchers: Vec<Vec<PyMatcher>>,
+}
+
 #[pyclass(extends = PyExpr, name = "VectorSelector", module = "promql_parser")]
 pub struct PyVectorSelector {
     #[pyo3(get)]
     name: Option<String>,
     #[pyo3(get)]
-    label_matchers: HashSet<PyMatcher>,
+    matchers: PyMatchers,
     #[pyo3(get)]
     offset: Option<Duration>,
     #[pyo3(get)]
@@ -449,24 +471,27 @@ impl PyVectorSelector {
             offset,
             at,
         } = expr;
+        let or_matchers = &matchers.or_matchers;
         let matchers = &matchers.matchers;
-        let mut py_matchers = HashSet::with_capacity(matchers.len());
+        let mut py_matchers = PyMatchers {
+            matchers: Vec::with_capacity(matchers.len()),
+            or_matchers: Vec::with_capacity(or_matchers.len()),
+        };
         for matcher in matchers {
-            py_matchers.insert(PyMatcher {
-                name: matcher.name.clone(),
-                value: matcher.value.clone(),
-                op: match matcher.op {
-                    promql_parser::label::MatchOp::Equal => PyMatchOp::Equal,
-                    promql_parser::label::MatchOp::NotEqual => PyMatchOp::NotEqual,
-                    promql_parser::label::MatchOp::Re(_) => PyMatchOp::Re,
-                    promql_parser::label::MatchOp::NotRe(_) => PyMatchOp::NotRe,
-                },
-            });
+            py_matchers.matchers.push(matcher.clone().into());
+        }
+        for matchers in or_matchers {
+            py_matchers.or_matchers.push(
+                matchers
+                    .iter()
+                    .map(|matcher| matcher.clone().into())
+                    .collect(),
+            );
         }
 
         let initializer = PyClassInitializer::from(parent).add_subclass(PyVectorSelector {
             name,
-            label_matchers: py_matchers,
+            matchers: py_matchers,
             offset: match offset {
                 Some(Offset::Pos(off)) => Some(
                     Duration::from_std(off).map_err(|e| PyOverflowError::new_err(e.to_string()))?,

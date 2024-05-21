@@ -56,6 +56,7 @@ fn promql_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<expr::PyStringLiteral>()?;
     m.add_class::<expr::PyMatchOp>()?;
     m.add_class::<expr::PyMatcher>()?;
+    m.add_class::<expr::PyMatchers>()?;
     m.add_class::<expr::PyVectorSelector>()?;
     m.add_class::<expr::PyMatrixSelector>()?;
     m.add_class::<expr::PyCall>()?;

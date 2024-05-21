@@ -1,3 +1,4 @@
+import promql_parser
 from promql_parser import parse
 
 l = 'prometheus_http_requests_total{code="200", job="prometheus"}'
