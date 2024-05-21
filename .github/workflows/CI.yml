@@ -24,6 +24,50 @@ jobs:
         name: wheels
         path: dist
 
+  musllinux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          - i686-unknown-linux-musl
+    steps:
+    - uses: actions/checkout@v3
+    - uses: PyO3/maturin-action@v1
+      with:
+          target: ${{ matrix.target }}
+          manylinux: musllinux_1_2
+          args: --release --sdist -o dist --find-interpreter
+          sccache: true
+    - name: Upload wheels
+      uses: actions/upload-artifact@v3
+      with:
+        name: wheels
+        path: dist
+
+  musllinux-cross:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - target: aarch64-unknown-linux-musl
+            arch: aarch64
+          - target: armv7-unknown-linux-musleabihf
+            arch: armv7
+    steps:
+    - uses: actions/checkout@v3
+    - uses: PyO3/maturin-action@v1
+      with:
+          target: ${{ matrix.target }}
+          manylinux: musllinux_1_2
+          args: --release --sdist -o dist --find-interpreter
+          sccache: true
+    - name: Upload wheels
+      uses: actions/upload-artifact@v3
+      with:
+        name: wheels
+        path: dist
+
   windows:
     runs-on: windows-latest
     steps:
