@@ -99,7 +99,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [ macos, windows, linux ]
+    needs: [ macos, windows, linux, musllinux-cross, musllinux ]
     steps:
       - uses: actions/download-artifact@v3
         with:
