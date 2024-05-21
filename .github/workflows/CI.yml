@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
   workflow_dispatch:
 
@@ -17,16 +17,16 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: PyO3/maturin-action@v1
-      with:
-        manylinux: auto
-        args: --release --sdist -o dist --find-interpreter
-    - name: Upload wheels
-      uses: actions/upload-artifact@v3
-      with:
-        name: wheels
-        path: dist
+      - uses: actions/checkout@v3
+      - uses: PyO3/maturin-action@v1
+        with:
+          manylinux: auto
+          args: --release --sdist -o dist --find-interpreter
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
 
   musllinux:
     runs-on: ubuntu-latest
@@ -36,18 +36,29 @@ jobs:
           - x86_64-unknown-linux-musl
           - i686-unknown-linux-musl
     steps:
-    - uses: actions/checkout@v3
-    - uses: PyO3/maturin-action@v1
-      with:
+      - uses: actions/checkout@v3
+      - uses: PyO3/maturin-action@v1
+        with:
           target: ${{ matrix.target }}
           manylinux: musllinux_1_2
           args: --release -o dist --find-interpreter
           sccache: true
-    - name: Upload wheels
-      uses: actions/upload-artifact@v3
-      with:
-        name: wheels
-        path: dist
+      - name: Install built wheel
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        uses: addnab/docker-run-action@v3
+        with:
+          image: alpine:latest
+          options: -v ${{ github.workspace }}:/io -w /io
+          run: |
+            apk add py3-virtualenv
+            python3 -m virtualenv .venv
+            source .venv/bin/activate
+            pip install promql_parser --no-index --find-links /io/dist/ --force-reinstall
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
 
   musllinux-cross:
     runs-on: ubuntu-latest
@@ -59,51 +70,63 @@ jobs:
           - target: armv7-unknown-linux-musleabihf
             arch: armv7
     steps:
-    - uses: actions/checkout@v3
-    - uses: PyO3/maturin-action@v1
-      with:
+      - uses: actions/checkout@v3
+      - uses: PyO3/maturin-action@v1
+        with:
           target: ${{ matrix.target }}
           manylinux: musllinux_1_2
           args: --release -o dist --find-interpreter
           sccache: true
-    - name: Upload wheels
-      uses: actions/upload-artifact@v3
-      with:
-        name: wheels
-        path: dist
+      - uses: uraimo/run-on-arch-action@v2.3.0
+        name: Install built wheel
+        with:
+          arch: ${{ matrix.platform.arch }}
+          distro: alpine_latest
+          githubToken: ${{ github.token }}
+          install: |
+            apk add py3-virtualenv
+          run: |
+            python3 -m virtualenv .venv
+            source .venv/bin/activate
+            pip install promql_parser --no-index --find-links dist/ --force-reinstall
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
 
   windows:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: PyO3/maturin-action@v1
-      with:
-        args: --release -o dist --find-interpreter
-    - name: Upload wheels
-      uses: actions/upload-artifact@v3
-      with:
-        name: wheels
-        path: dist
+      - uses: actions/checkout@v3
+      - uses: PyO3/maturin-action@v1
+        with:
+          args: --release -o dist --find-interpreter
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
 
   macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: PyO3/maturin-action@v1
-      with:
-        target: universal2-apple-darwin
-        args: --release -o dist --find-interpreter
-    - name: Upload wheels
-      uses: actions/upload-artifact@v3
-      with:
-        name: wheels
-        path: dist
+      - uses: actions/checkout@v3
+      - uses: PyO3/maturin-action@v1
+        with:
+          target: universal2-apple-darwin
+          args: --release -o dist --find-interpreter
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
 
   release:
     name: Release
     runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [ macos, windows, linux, musllinux-cross, musllinux ]
+    needs: [macos, windows, linux, musllinux-cross, musllinux]
     steps:
       - uses: actions/download-artifact@v3
         with:
