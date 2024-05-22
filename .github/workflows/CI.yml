@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - "v*"
+      - 'v*'
   pull_request:
   workflow_dispatch:
 
@@ -17,16 +17,16 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: PyO3/maturin-action@v1
-        with:
-          manylinux: auto
-          args: --release --sdist -o dist --find-interpreter
-      - name: Upload wheels
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: dist
+    - uses: actions/checkout@v3
+    - uses: PyO3/maturin-action@v1
+      with:
+        manylinux: auto
+        args: --release --sdist -o dist --find-interpreter
+    - name: Upload wheels
+      uses: actions/upload-artifact@v3
+      with:
+        name: wheels
+        path: dist
 
   musllinux:
     runs-on: ubuntu-latest
@@ -107,29 +107,29 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: PyO3/maturin-action@v1
-        with:
-          args: --release -o dist --find-interpreter
-      - name: Upload wheels
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: dist
+    - uses: actions/checkout@v3
+    - uses: PyO3/maturin-action@v1
+      with:
+        args: --release -o dist --find-interpreter
+    - name: Upload wheels
+      uses: actions/upload-artifact@v3
+      with:
+        name: wheels
+        path: dist
 
   macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: PyO3/maturin-action@v1
-        with:
-          target: universal2-apple-darwin
-          args: --release -o dist --find-interpreter
-      - name: Upload wheels
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: dist
+    - uses: actions/checkout@v3
+    - uses: PyO3/maturin-action@v1
+      with:
+        target: universal2-apple-darwin
+        args: --release -o dist --find-interpreter
+    - name: Upload wheels
+      uses: actions/upload-artifact@v3
+      with:
+        name: wheels
+        path: dist
 
   release:
     name: Release
