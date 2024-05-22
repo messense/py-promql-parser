@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use chrono::Duration;
 use promql_parser::label::Label;
 use promql_parser::parser::{
@@ -305,17 +307,7 @@ impl PySubqueryExpr {
                 ),
                 None => None,
             },
-            at: match at {
-                Some(at) => {
-                    let typ = match at {
-                        AtModifier::Start => PyAtModifierType::Start,
-                        AtModifier::End => PyAtModifierType::End,
-                        AtModifier::At(_) => PyAtModifierType::At,
-                    };
-                    Some(PyAtModifier { r#type: typ })
-                }
-                None => None,
-            },
+            at: at.map(|at| at.into()),
             range: Duration::from_std(range)
                 .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
             step: match step {
@@ -335,7 +327,19 @@ impl PySubqueryExpr {
 pub struct PyAtModifier {
     #[pyo3(get)]
     r#type: PyAtModifierType,
-    // at: Option<SystemTime>,
+    #[pyo3(get)]
+    at: Option<SystemTime>,
+}
+
+impl From<AtModifier> for PyAtModifier {
+    fn from(at: AtModifier) -> Self {
+        let (typ, at) = match at {
+            AtModifier::Start => (PyAtModifierType::Start, None),
+            AtModifier::End => (PyAtModifierType::End, None),
+            AtModifier::At(at) => (PyAtModifierType::At, Some(at)),
+        };
+        PyAtModifier { r#type: typ, at }
+    }
 }
 
 #[pyclass(name = "AtModifierType", module = "promql_parser")]
@@ -502,17 +506,7 @@ impl PyVectorSelector {
                 ),
                 None => None,
             },
-            at: match at {
-                Some(at) => {
-                    let typ = match at {
-                        AtModifier::Start => PyAtModifierType::Start,
-                        AtModifier::End => PyAtModifierType::End,
-                        AtModifier::At(_) => PyAtModifierType::At,
-                    };
-                    Some(PyAtModifier { r#type: typ })
-                }
-                None => None,
-            },
+            at: at.map(|at| at.into()),
         });
         Ok(Py::new(py, initializer)?.into_py(py))
     }
