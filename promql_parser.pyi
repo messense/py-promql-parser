@@ -35,7 +35,7 @@ which isreleased at 2023-06-23. Any revision on PromQL after this commit is not 
 
 from datetime import datetime, timedelta
 from enum import Enum
-from typing_extensions import Any, List, Optional, final
+from typing import Any, List, Optional, final
 
 def parse(input: str) -> Expr:
     """Parse the given query literal to an AST."""
