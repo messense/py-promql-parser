@@ -61,7 +61,7 @@ def parse_duration(duration: str) -> timedelta:
     ...
 
 def display_duration(delta: timedelta) -> str:
-    """/// display Duration in Prometheus format"""
+    """Display Duration in Prometheus format"""
     ...
 
 class Expr:
