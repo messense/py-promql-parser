@@ -13,7 +13,7 @@ fn parse(py: Python, input: &str) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-fn parse_duration<'p>(py: Python<'p>, duration: &str) -> PyResult<&'p PyDelta> {
+fn parse_duration<'p>(py: Python<'p>, duration: &str) -> PyResult<Bound<'p, PyDelta>> {
     let duration =
         ::promql_parser::util::duration::parse_duration(duration).map_err(PyValueError::new_err)?;
     PyDelta::new(
@@ -26,7 +26,7 @@ fn parse_duration<'p>(py: Python<'p>, duration: &str) -> PyResult<&'p PyDelta> {
 }
 
 #[pyfunction]
-fn display_duration(delta: &PyDelta) -> String {
+fn display_duration(delta: Bound<'_, PyDelta>) -> String {
     let duration = std::time::Duration::new(
         delta.get_days() as u64 * 24 * 60 * 60 + delta.get_seconds() as u64,
         delta.get_microseconds() as u32 * 1000,
@@ -35,8 +35,8 @@ fn display_duration(delta: &PyDelta) -> String {
 }
 
 /// A Python module implemented in Rust.
-#[pymodule]
-fn promql_parser(_py: Python, m: &PyModule) -> PyResult<()> {
+#[pymodule(gil_used = false)]
+fn promql_parser(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyExpr>()?;
     m.add_class::<expr::PyAggregateExpr>()?;
     m.add_class::<expr::PyTokenType>()?;

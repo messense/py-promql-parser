@@ -8,7 +8,7 @@ use promql_parser::parser::{
     UnaryExpr, VectorMatchCardinality, VectorSelector,
 };
 use pyo3::exceptions::{PyNotImplementedError, PyOverflowError, PyValueError};
-use pyo3::prelude::*;
+use pyo3::{prelude::*, IntoPyObjectExt};
 
 #[pyclass(subclass, name = "Expr", module = "promql_parser")]
 #[derive(Debug, Clone)]
@@ -94,7 +94,7 @@ impl PyAggregateExpr {
                 None => None,
             },
         });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
@@ -126,8 +126,8 @@ pub struct PyAggModifier {
     labels: Vec<Label>,
 }
 
-#[pyclass(name = "AggModifierType", module = "promql_parser")]
-#[derive(Debug, Clone, Copy)]
+#[pyclass(name = "AggModifierType", module = "promql_parser", eq, eq_int)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyAggModifierType {
     By,
     Without,
@@ -148,7 +148,7 @@ impl PyUnaryExpr {
         let initializer = PyClassInitializer::from(parent).add_subclass(PyUnaryExpr {
             expr: PyExpr::create(py, *expr)?,
         });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
@@ -199,7 +199,7 @@ impl PyBinaryExpr {
             rhs: PyExpr::create(py, *rhs)?,
             modifier: py_modifier,
         });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
@@ -223,15 +223,15 @@ pub struct PyLabelModifier {
     labels: Vec<Label>,
 }
 
-#[pyclass(name = "LabelModifierType", module = "promql_parser")]
-#[derive(Debug, Clone, Copy)]
+#[pyclass(name = "LabelModifierType", module = "promql_parser", eq, eq_int)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyLabelModifierType {
     Include,
     Exclude,
 }
 
-#[pyclass(name = "VectorMatchCardinality", module = "promql_parser")]
-#[derive(Debug, Clone, Copy)]
+#[pyclass(name = "VectorMatchCardinality", module = "promql_parser", eq, eq_int)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyVectorMatchCardinality {
     OneToOne,
     ManyToOne,
@@ -265,7 +265,7 @@ impl PyParenExpr {
         let initializer = PyClassInitializer::from(parent).add_subclass(PyParenExpr {
             expr: PyExpr::create(py, *expr)?,
         });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
@@ -318,7 +318,7 @@ impl PySubqueryExpr {
                 None => None,
             },
         });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
@@ -342,8 +342,8 @@ impl From<AtModifier> for PyAtModifier {
     }
 }
 
-#[pyclass(name = "AtModifierType", module = "promql_parser")]
-#[derive(Debug, Clone, Copy)]
+#[pyclass(name = "AtModifierType", module = "promql_parser", eq, eq_int)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyAtModifierType {
     Start,
     End,
@@ -363,7 +363,7 @@ impl PyNumberLiteral {
         };
         let NumberLiteral { val } = expr;
         let initializer = PyClassInitializer::from(parent).add_subclass(PyNumberLiteral { val });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
@@ -380,11 +380,11 @@ impl PyStringLiteral {
         };
         let StringLiteral { val } = expr;
         let initializer = PyClassInitializer::from(parent).add_subclass(PyStringLiteral { val });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
-#[pyclass(name = "MatchOp", module = "promql_parser")]
+#[pyclass(name = "MatchOp", module = "promql_parser", eq, eq_int)]
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum PyMatchOp {
     Equal,
@@ -508,7 +508,7 @@ impl PyVectorSelector {
             },
             at: at.map(|at| at.into()),
         });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
@@ -532,7 +532,7 @@ impl PyMatrixSelector {
             range: Duration::from_std(range)
                 .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
         });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
@@ -563,12 +563,12 @@ impl PyCall {
             .collect();
         let initializer =
             PyClassInitializer::from(parent).add_subclass(PyCall { func, args: args? });
-        Ok(Py::new(py, initializer)?.into_py(py))
+        Py::new(py, initializer)?.into_py_any(py)
     }
 }
 
-#[pyclass(name = "ValueType", module = "promql_parser")]
-#[derive(Debug, Clone, Copy)]
+#[pyclass(name = "ValueType", module = "promql_parser", eq, eq_int)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyValueType {
     Vector,
     Scalar,
