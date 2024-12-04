@@ -133,6 +133,9 @@ jobs:
       - uses: PyO3/maturin-action@v1
         with:
           args: --release -o dist --find-interpreter
+      - uses: PyO3/maturin-action@v1
+        with:
+          args: --release -o dist -i python3.13t
       - name: Upload wheels
         uses: actions/upload-artifact@v3
         with:
