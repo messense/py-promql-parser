@@ -44,7 +44,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i 3.8 3.9 3.10 3.11 3.12 3.13 3.13t pypy3.10 pypy3.11
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 3.14t pypy3.11
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
       - name: Upload wheels
@@ -75,7 +75,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i 3.8 3.9 3.10 3.11 3.12 3.13 3.13t pypy3.10 pypy3.11
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 3.14t pypy3.11
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: musllinux_1_2
       - name: Upload wheels
@@ -91,10 +91,10 @@ jobs:
         platform:
           - runner: windows-latest
             target: x64
-            interpreter: 3.8 3.9 3.10 3.11 3.12 3.13 3.13t pypy3.10 pypy3.11
+            interpreter: 3.10 3.11 3.12 3.13 3.14 3.14t pypy3.11
           - runner: windows-latest
             target: x86
-            interpreter: 3.8 3.9 3.10 3.11 3.12 3.13 3.13t
+            interpreter: 3.10 3.11 3.12 3.13 3.14 3.14t
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -131,7 +131,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i 3.8 3.9 3.10 3.11 3.12 3.13 3.13t pypy3.10 pypy3.11
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 3.14t pypy3.11
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
       - name: Upload wheels
         uses: actions/upload-artifact@v5
