@@ -17,7 +17,7 @@ pub struct PyExpr {
 }
 
 impl PyExpr {
-    pub fn create(py: Python, expr: Expr) -> PyResult<PyObject> {
+    pub fn create(py: Python, expr: Expr) -> PyResult<Py<PyAny>> {
         match expr {
             Expr::Aggregate(agg) => PyAggregateExpr::create(py, agg),
             Expr::Unary(expr) => PyUnaryExpr::create(py, expr),
@@ -37,7 +37,7 @@ impl PyExpr {
 #[pymethods]
 impl PyExpr {
     #[staticmethod]
-    pub fn parse(py: Python, input: &str) -> PyResult<PyObject> {
+    pub fn parse(py: Python, input: &str) -> PyResult<Py<PyAny>> {
         let expr = parser::parse(input).map_err(PyValueError::new_err)?;
         let py_expr = Self::create(py, expr)?;
         Ok(py_expr)
@@ -57,15 +57,15 @@ pub struct PyAggregateExpr {
     #[pyo3(get)]
     op: PyTokenType,
     #[pyo3(get)]
-    expr: PyObject,
+    expr: Py<PyAny>,
     #[pyo3(get)]
-    param: Option<PyObject>,
+    param: Option<Py<PyAny>>,
     #[pyo3(get)]
     modifier: Option<PyAggModifier>,
 }
 
 impl PyAggregateExpr {
-    fn create(py: Python, expr: AggregateExpr) -> PyResult<PyObject> {
+    fn create(py: Python, expr: AggregateExpr) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::Aggregate(expr.clone()),
         };
@@ -136,11 +136,11 @@ pub enum PyAggModifierType {
 #[pyclass(extends = PyExpr, name = "UnaryExpr", module = "promql_parser")]
 pub struct PyUnaryExpr {
     #[pyo3(get)]
-    expr: PyObject,
+    expr: Py<PyAny>,
 }
 
 impl PyUnaryExpr {
-    fn create(py: Python, expr: UnaryExpr) -> PyResult<PyObject> {
+    fn create(py: Python, expr: UnaryExpr) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::Unary(expr.clone()),
         };
@@ -157,15 +157,15 @@ pub struct PyBinaryExpr {
     #[pyo3(get)]
     op: PyTokenType,
     #[pyo3(get)]
-    lhs: PyObject,
+    lhs: Py<PyAny>,
     #[pyo3(get)]
-    rhs: PyObject,
+    rhs: Py<PyAny>,
     #[pyo3(get)]
     modifier: Option<PyBinModifier>,
 }
 
 impl PyBinaryExpr {
-    fn create(py: Python, expr: BinaryExpr) -> PyResult<PyObject> {
+    fn create(py: Python, expr: BinaryExpr) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::Binary(expr.clone()),
         };
@@ -253,11 +253,11 @@ impl From<VectorMatchCardinality> for PyVectorMatchCardinality {
 #[pyclass(extends = PyExpr, name = "ParenExpr", module = "promql_parser")]
 pub struct PyParenExpr {
     #[pyo3(get)]
-    expr: PyObject,
+    expr: Py<PyAny>,
 }
 
 impl PyParenExpr {
-    fn create(py: Python, expr: ParenExpr) -> PyResult<PyObject> {
+    fn create(py: Python, expr: ParenExpr) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::Paren(expr.clone()),
         };
@@ -272,7 +272,7 @@ impl PyParenExpr {
 #[pyclass(extends = PyExpr, name = "SubqueryExpr", module = "promql_parser")]
 pub struct PySubqueryExpr {
     #[pyo3(get)]
-    expr: PyObject,
+    expr: Py<PyAny>,
     #[pyo3(get)]
     offset: Option<Duration>,
     #[pyo3(get)]
@@ -284,7 +284,7 @@ pub struct PySubqueryExpr {
 }
 
 impl PySubqueryExpr {
-    fn create(py: Python, expr: SubqueryExpr) -> PyResult<PyObject> {
+    fn create(py: Python, expr: SubqueryExpr) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::Subquery(expr.clone()),
         };
@@ -357,7 +357,7 @@ pub struct PyNumberLiteral {
 }
 
 impl PyNumberLiteral {
-    fn create(py: Python, expr: NumberLiteral) -> PyResult<PyObject> {
+    fn create(py: Python, expr: NumberLiteral) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::NumberLiteral(expr.clone()),
         };
@@ -374,7 +374,7 @@ pub struct PyStringLiteral {
 }
 
 impl PyStringLiteral {
-    fn create(py: Python, expr: StringLiteral) -> PyResult<PyObject> {
+    fn create(py: Python, expr: StringLiteral) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::StringLiteral(expr.clone()),
         };
@@ -465,7 +465,7 @@ pub struct PyVectorSelector {
 }
 
 impl PyVectorSelector {
-    fn create(py: Python, expr: VectorSelector) -> PyResult<PyObject> {
+    fn create(py: Python, expr: VectorSelector) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::VectorSelector(expr.clone()),
         };
@@ -515,13 +515,13 @@ impl PyVectorSelector {
 #[pyclass(extends = PyExpr, name = "MatrixSelector", module = "promql_parser")]
 pub struct PyMatrixSelector {
     #[pyo3(get)]
-    vector_selector: PyObject,
+    vector_selector: Py<PyAny>,
     #[pyo3(get)]
     range: Duration,
 }
 
 impl PyMatrixSelector {
-    fn create(py: Python, expr: MatrixSelector) -> PyResult<PyObject> {
+    fn create(py: Python, expr: MatrixSelector) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::MatrixSelector(expr.clone()),
         };
@@ -541,11 +541,11 @@ pub struct PyCall {
     #[pyo3(get)]
     func: PyFunction,
     #[pyo3(get)]
-    args: Vec<PyObject>,
+    args: Vec<Py<PyAny>>,
 }
 
 impl PyCall {
-    fn create(py: Python, expr: Call) -> PyResult<PyObject> {
+    fn create(py: Python, expr: Call) -> PyResult<Py<PyAny>> {
         let parent = PyExpr {
             expr: Expr::Call(expr.clone()),
         };
