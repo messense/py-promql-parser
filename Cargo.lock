@@ -388,9 +388,9 @@ dependencies = [
 
 [[package]]
 name = "promql-parser"
-version = "0.6.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "328fe69c2443ec4f8e6c33ea925dde04a1026e6c95928e89ed02343944cac9bf"
+checksum = "6c3c2199b84e1253aade469e92ae16cd8dbe1de031c66a00f4f5cdd650290a86"
 dependencies = [
  "cfgrammar",
  "chrono",
@@ -398,7 +398,6 @@ dependencies = [
  "lrlex",
  "lrpar",
  "regex",
- "unescaper",
 ]
 
 [[package]]
@@ -607,26 +606,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df7f62577c25e07834649fc3b39fafdc597c0a3527dc1c60129201ccfcbaa50c"
 
 [[package]]
-name = "thiserror"
-version = "2.0.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f63587ca0f12b72a0600bcba1d40081f830876000bb46dd2337a3051618f4fc8"
-dependencies = [
- "thiserror-impl",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "2.0.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ff15c8ecd7de3849db632e14d18d2571fa09dfc5ed93479bc4485c7a517c913"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "time"
 version = "0.3.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -657,15 +636,6 @@ checksum = "30cfb0125f12d9c277f35663a0a33f8c30190f4e4574868a330595412d34ebf3"
 dependencies = [
  "num-conv",
  "time-core",
-]
-
-[[package]]
-name = "unescaper"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c01d12e3a56a4432a8b436f293c25f4808bdf9e9f9f98f9260bba1f1bc5a1f26"
-dependencies = [
- "thiserror",
 ]
 
 [[package]]
