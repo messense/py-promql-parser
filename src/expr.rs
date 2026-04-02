@@ -595,7 +595,7 @@ pub struct PyFunction {
     #[pyo3(get)]
     arg_types: Vec<PyValueType>,
     #[pyo3(get)]
-    variadic: bool,
+    variadic: i32,
     #[pyo3(get)]
     return_type: PyValueType,
 }
