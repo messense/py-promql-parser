@@ -265,5 +265,5 @@ class ValueType(Enum):
 class Function:
     name: str
     arg_types: List[ValueType]
-    variadic: bool
+    variadic: int
     return_type: ValueType
