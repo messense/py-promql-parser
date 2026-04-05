@@ -3,14 +3,14 @@ use std::time::SystemTime;
 use chrono::Duration;
 use promql_parser::label::Label;
 use promql_parser::parser::{
-    self, token::TokenType, value::ValueType, AggregateExpr, AtModifier, BinaryExpr, Call, Expr,
-    LabelModifier, MatrixSelector, NumberLiteral, Offset, ParenExpr, StringLiteral, SubqueryExpr,
-    UnaryExpr, VectorMatchCardinality, VectorSelector,
+    self, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, LabelModifier, MatrixSelector,
+    NumberLiteral, Offset, ParenExpr, StringLiteral, SubqueryExpr, UnaryExpr,
+    VectorMatchCardinality, VectorSelector, token::TokenType, value::ValueType,
 };
 use pyo3::exceptions::{PyNotImplementedError, PyOverflowError, PyValueError};
-use pyo3::{prelude::*, IntoPyObjectExt};
+use pyo3::{IntoPyObjectExt, prelude::*};
 
-#[pyclass(subclass, name = "Expr", module = "promql_parser")]
+#[pyclass(subclass, name = "Expr", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyExpr {
     pub expr: Expr,
@@ -98,7 +98,7 @@ impl PyAggregateExpr {
     }
 }
 
-#[pyclass(name = "TokenType", module = "promql_parser")]
+#[pyclass(name = "TokenType", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone, Copy)]
 pub struct PyTokenType {
     r#type: TokenType,
@@ -117,7 +117,7 @@ impl PyTokenType {
     }
 }
 
-#[pyclass(name = "AggModifier", module = "promql_parser")]
+#[pyclass(name = "AggModifier", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyAggModifier {
     #[pyo3(get)]
@@ -126,7 +126,13 @@ pub struct PyAggModifier {
     labels: Vec<Label>,
 }
 
-#[pyclass(name = "AggModifierType", module = "promql_parser", eq, eq_int)]
+#[pyclass(
+    name = "AggModifierType",
+    module = "promql_parser",
+    eq,
+    eq_int,
+    skip_from_py_object
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyAggModifierType {
     By,
@@ -203,7 +209,7 @@ impl PyBinaryExpr {
     }
 }
 
-#[pyclass(name = "BinModifier", module = "promql_parser")]
+#[pyclass(name = "BinModifier", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyBinModifier {
     #[pyo3(get)]
@@ -214,7 +220,7 @@ pub struct PyBinModifier {
     return_bool: bool,
 }
 
-#[pyclass(name = "LabelModifier", module = "promql_parser")]
+#[pyclass(name = "LabelModifier", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyLabelModifier {
     #[pyo3(get)]
@@ -223,14 +229,26 @@ pub struct PyLabelModifier {
     labels: Vec<Label>,
 }
 
-#[pyclass(name = "LabelModifierType", module = "promql_parser", eq, eq_int)]
+#[pyclass(
+    name = "LabelModifierType",
+    module = "promql_parser",
+    eq,
+    eq_int,
+    skip_from_py_object
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyLabelModifierType {
     Include,
     Exclude,
 }
 
-#[pyclass(name = "VectorMatchCardinality", module = "promql_parser", eq, eq_int)]
+#[pyclass(
+    name = "VectorMatchCardinality",
+    module = "promql_parser",
+    eq,
+    eq_int,
+    skip_from_py_object
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyVectorMatchCardinality {
     OneToOne,
@@ -322,7 +340,7 @@ impl PySubqueryExpr {
     }
 }
 
-#[pyclass(name = "AtModifier", module = "promql_parser")]
+#[pyclass(name = "AtModifier", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyAtModifier {
     #[pyo3(get)]
@@ -342,7 +360,13 @@ impl From<AtModifier> for PyAtModifier {
     }
 }
 
-#[pyclass(name = "AtModifierType", module = "promql_parser", eq, eq_int)]
+#[pyclass(
+    name = "AtModifierType",
+    module = "promql_parser",
+    eq,
+    eq_int,
+    skip_from_py_object
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyAtModifierType {
     Start,
@@ -384,7 +408,13 @@ impl PyStringLiteral {
     }
 }
 
-#[pyclass(name = "MatchOp", module = "promql_parser", eq, eq_int)]
+#[pyclass(
+    name = "MatchOp",
+    module = "promql_parser",
+    eq,
+    eq_int,
+    skip_from_py_object
+)]
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum PyMatchOp {
     Equal,
@@ -405,7 +435,7 @@ impl PyMatchOp {
     }
 }
 
-#[pyclass(name = "Matcher", module = "promql_parser")]
+#[pyclass(name = "Matcher", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct PyMatcher {
     #[pyo3(get)]
@@ -443,7 +473,7 @@ impl From<promql_parser::label::Matcher> for PyMatcher {
     }
 }
 
-#[pyclass(name = "Matchers", module = "promql_parser")]
+#[pyclass(name = "Matchers", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PyMatchers {
     #[pyo3(get)]
@@ -567,7 +597,13 @@ impl PyCall {
     }
 }
 
-#[pyclass(name = "ValueType", module = "promql_parser", eq, eq_int)]
+#[pyclass(
+    name = "ValueType",
+    module = "promql_parser",
+    eq,
+    eq_int,
+    skip_from_py_object
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyValueType {
     Vector,
@@ -587,7 +623,7 @@ impl From<ValueType> for PyValueType {
     }
 }
 
-#[pyclass(name = "Function", module = "promql_parser")]
+#[pyclass(name = "Function", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyFunction {
     #[pyo3(get)]
