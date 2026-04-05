@@ -91,8 +91,18 @@ class TokenType:
 
 @final
 class AggModifier:
+    """Aggregation modifier (by/without clause)."""
     type: AggModifierType
     labels: List[str]
+
+    def __init__(self, type: AggModifierType, labels: List[str]) -> None:
+        """Create a new AggModifier.
+
+        Args:
+            type: The modifier type (By or Without).
+            labels: List of label names.
+        """
+        ...
 
 @final
 class AggModifierType(Enum):
@@ -137,6 +147,16 @@ class BinModifier:
     matching: Optional[LabelModifier]
     return_bool: bool
 
+    def __init__(self, card: VectorMatchCardinality, return_bool: bool, matching: Optional[LabelModifier] = None) -> None:
+        """Create a new BinModifier.
+
+        Args:
+            card: The vector matching cardinality.
+            return_bool: Whether to return bool values.
+            matching: Optional label modifier for matching.
+        """
+        ...
+
 @final
 class LabelModifier:
     """LabelModifier acts as
@@ -158,6 +178,15 @@ class LabelModifier:
 
     type: LabelModifierType
     labels: List[str]
+
+    def __init__(self, type: LabelModifierType, labels: List[str]) -> None:
+        """Create a new LabelModifier.
+
+        Args:
+            type: The modifier type (Include or Exclude).
+            labels: List of label names.
+        """
+        ...
 
 @final
 class LabelModifierType(Enum):
@@ -207,14 +236,23 @@ class NumberLiteral(Expr):
 
     val: float
 
+    def __str__(self) -> str:
+        """Return the PromQL string representation of this number."""
+        ...
+
 @final
 class StringLiteral(Expr):
     """A string literal."""
 
     val: str
 
+    def __str__(self) -> str:
+        """Return the PromQL string representation of this string."""
+        ...
+
 @final
 class MatchOp(Enum):
+    """Match operator for label matchers."""
     Equal: Any
     NotEqual: Any
     Re: Any
@@ -222,30 +260,106 @@ class MatchOp(Enum):
 
 @final
 class Matcher:
+    """A label matcher.
+
+    Example:
+        Create a new matcher:
+        ```python
+        import promql_parser
+
+        m = promql_parser.Matcher(promql_parser.MatchOp.Equal, "job", "prometheus")
+        m.value = "alertmanager"  # Modify the value
+        print(str(m))  # Output: job="alertmanager"
+        ```
+    """
     op: MatchOp
     name: str
     value: str
 
+    def __init__(self, op: MatchOp, name: str, value: str) -> None:
+        """Create a new Matcher.
+
+        Args:
+            op: The match operator (Equal, NotEqual, Re, NotRe).
+            name: The label name.
+            value: The label value.
+        """
+        ...
+
+    def __str__(self) -> str:
+        """Return the PromQL string representation of this matcher."""
+        ...
+
 @final
 class Matchers:
+    """A collection of label matchers.
+
+    Example:
+        Create matchers from scratch:
+        ```python
+        import promql_parser
+
+        m1 = promql_parser.Matcher(promql_parser.MatchOp.Equal, "job", "prometheus")
+        m2 = promql_parser.Matcher(promql_parser.MatchOp.Re, "instance", ".*:9090")
+        matchers = promql_parser.Matchers([m1, m2])
+        print(str(matchers))  # Output: {job="prometheus",instance=~".*:9090"}
+        ```
+    """
     matchers: List[Matcher]
     or_matchers: List[List[Matcher]]
 
+    def __init__(self, matchers: List[Matcher]) -> None:
+        """Create a new Matchers collection.
+
+        Args:
+            matchers: List of Matcher objects.
+        """
+        ...
+
+    def with_or_matchers(self, or_matchers: List[List[Matcher]]) -> "Matchers":
+        """Return a new Matchers with the specified or_matchers.
+
+        Args:
+            or_matchers: List of alternative matcher groups.
+
+        Returns:
+            A new Matchers instance with the same matchers and the specified or_matchers.
+        """
+        ...
+
+    def __str__(self) -> str:
+        """Return the PromQL string representation of these matchers."""
+        ...
+
 @final
 class VectorSelector(Expr):
-    """A Vector selection."""
+    """A Vector selection.
+
+    Use str() to convert to PromQL after modifications.
+    """
 
     name: Optional[str]
     matchers: Matchers
     offset: Optional[timedelta]
     at: Optional[AtModifier]
 
+    def __str__(self) -> str:
+        """Return the PromQL string representation of this vector selector."""
+        ...
+
 @final
 class MatrixSelector(Expr):
-    """A Matrix selection."""
+    """A Matrix selection.
+
+    Use str() to convert to PromQL after modifications.
+    """
 
     vector_selector: VectorSelector
     range: timedelta
+
+    def __str__(self) -> str:
+        """Return the PromQL string representation of this matrix selector."""
+        ...
 
 @final
 class Call(Expr):
