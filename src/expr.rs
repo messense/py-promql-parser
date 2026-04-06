@@ -98,6 +98,29 @@ impl PyAggregateExpr {
     }
 }
 
+#[pymethods]
+impl PyAggregateExpr {
+    fn __str__(&self, py: Python) -> PyResult<String> {
+        let op_str = self.op.__str__();
+        let expr_str: String = self.expr.call_method0(py, "__str__")?.extract(py)?;
+        let modifier_str = match &self.modifier {
+            Some(m) => format!(" {}", m.__str__()),
+            None => String::new(),
+        };
+        let param_str = match &self.param {
+            Some(p) => {
+                let p_str: String = p.call_method0(py, "__str__")?.extract(py)?;
+                format!("{}, ", p_str)
+            }
+            None => String::new(),
+        };
+        Ok(format!(
+            "{}{}({}{})",
+            op_str, modifier_str, param_str, expr_str
+        ))
+    }
+}
+
 #[pyclass(name = "TokenType", module = "promql_parser", skip_from_py_object)]
 #[derive(Debug, Clone, Copy)]
 pub struct PyTokenType {
@@ -117,13 +140,29 @@ impl PyTokenType {
     }
 }
 
-#[pyclass(name = "AggModifier", module = "promql_parser", skip_from_py_object)]
+#[pyclass(name = "AggModifier", module = "promql_parser", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyAggModifier {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     r#type: PyAggModifierType,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     labels: Vec<Label>,
+}
+
+#[pymethods]
+impl PyAggModifier {
+    #[new]
+    fn new(r#type: PyAggModifierType, labels: Vec<String>) -> Self {
+        PyAggModifier { r#type, labels }
+    }
+
+    fn __str__(&self) -> String {
+        let keyword = match self.r#type {
+            PyAggModifierType::By => "by",
+            PyAggModifierType::Without => "without",
+        };
+        format!("{} ({})", keyword, self.labels.join(", "))
+    }
 }
 
 #[pyclass(
@@ -131,7 +170,7 @@ pub struct PyAggModifier {
     module = "promql_parser",
     eq,
     eq_int,
-    skip_from_py_object
+    from_py_object
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyAggModifierType {
@@ -155,6 +194,14 @@ impl PyUnaryExpr {
             expr: PyExpr::create(py, *expr)?,
         });
         Py::new(py, initializer)?.into_py_any(py)
+    }
+}
+
+#[pymethods]
+impl PyUnaryExpr {
+    fn __str__(&self, py: Python) -> PyResult<String> {
+        let expr_str: String = self.expr.call_method0(py, "__str__")?.extract(py)?;
+        Ok(format!("-{}", expr_str))
     }
 }
 
@@ -209,24 +256,94 @@ impl PyBinaryExpr {
     }
 }
 
-#[pyclass(name = "BinModifier", module = "promql_parser", skip_from_py_object)]
+#[pymethods]
+impl PyBinaryExpr {
+    fn __str__(&self, py: Python) -> PyResult<String> {
+        let lhs_str: String = self.lhs.call_method0(py, "__str__")?.extract(py)?;
+        let rhs_str: String = self.rhs.call_method0(py, "__str__")?.extract(py)?;
+        let op_str = self.op.__str__();
+        let modifier_str = match &self.modifier {
+            Some(m) => format!(" {}", m.__str__()),
+            None => String::new(),
+        };
+        Ok(format!(
+            "{} {}{} {}",
+            lhs_str, op_str, modifier_str, rhs_str
+        ))
+    }
+}
+
+#[pyclass(name = "BinModifier", module = "promql_parser", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyBinModifier {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     card: PyVectorMatchCardinality,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     matching: Option<PyLabelModifier>,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     return_bool: bool,
 }
 
-#[pyclass(name = "LabelModifier", module = "promql_parser", skip_from_py_object)]
+#[pymethods]
+impl PyBinModifier {
+    #[new]
+    #[pyo3(signature = (card, return_bool, matching=None))]
+    fn new(
+        card: PyVectorMatchCardinality,
+        return_bool: bool,
+        matching: Option<PyLabelModifier>,
+    ) -> Self {
+        PyBinModifier {
+            card,
+            matching,
+            return_bool,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        let mut parts = Vec::new();
+
+        if self.return_bool {
+            parts.push("bool".to_string());
+        }
+
+        if let Some(matching) = &self.matching {
+            parts.push(matching.__str__());
+        }
+
+        match self.card {
+            PyVectorMatchCardinality::ManyToOne => parts.push("group_left".to_string()),
+            PyVectorMatchCardinality::OneToMany => parts.push("group_right".to_string()),
+            _ => {}
+        }
+
+        parts.join(" ")
+    }
+}
+
+#[pyclass(name = "LabelModifier", module = "promql_parser", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyLabelModifier {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     r#type: PyLabelModifierType,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     labels: Vec<Label>,
+}
+
+#[pymethods]
+impl PyLabelModifier {
+    #[new]
+    fn new(r#type: PyLabelModifierType, labels: Vec<String>) -> Self {
+        PyLabelModifier { r#type, labels }
+    }
+
+    fn __str__(&self) -> String {
+        let keyword = match self.r#type {
+            PyLabelModifierType::Include => "on",
+            PyLabelModifierType::Exclude => "ignoring",
+        };
+        format!("{} ({})", keyword, self.labels.join(", "))
+    }
 }
 
 #[pyclass(
@@ -234,7 +351,7 @@ pub struct PyLabelModifier {
     module = "promql_parser",
     eq,
     eq_int,
-    skip_from_py_object
+    from_py_object
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyLabelModifierType {
@@ -247,7 +364,7 @@ pub enum PyLabelModifierType {
     module = "promql_parser",
     eq,
     eq_int,
-    skip_from_py_object
+    from_py_object
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyVectorMatchCardinality {
@@ -287,17 +404,25 @@ impl PyParenExpr {
     }
 }
 
+#[pymethods]
+impl PyParenExpr {
+    fn __str__(&self, py: Python) -> PyResult<String> {
+        let expr_str: String = self.expr.call_method0(py, "__str__")?.extract(py)?;
+        Ok(format!("({})", expr_str))
+    }
+}
+
 #[pyclass(extends = PyExpr, name = "SubqueryExpr", module = "promql_parser")]
 pub struct PySubqueryExpr {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     expr: Py<PyAny>,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     offset: Option<Duration>,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     at: Option<PyAtModifier>,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     range: Duration,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     step: Option<Duration>,
 }
 
@@ -338,14 +463,49 @@ impl PySubqueryExpr {
         });
         Py::new(py, initializer)?.into_py_any(py)
     }
+
+    fn format_duration(d: &Duration) -> String {
+        promql_parser::util::duration::display_duration(&std::time::Duration::from_secs(
+            d.num_seconds().unsigned_abs(),
+        ))
+    }
 }
 
-#[pyclass(name = "AtModifier", module = "promql_parser", skip_from_py_object)]
+#[pymethods]
+impl PySubqueryExpr {
+    fn __str__(&self, py: Python) -> PyResult<String> {
+        let expr_str: String = self.expr.call_method0(py, "__str__")?.extract(py)?;
+        let range_str = Self::format_duration(&self.range);
+        let step_str = match &self.step {
+            Some(s) => format!(":{}", Self::format_duration(s)),
+            None => String::new(),
+        };
+        let offset_str = match &self.offset {
+            Some(d) if d.num_seconds() < 0 => {
+                format!(" offset -{}", Self::format_duration(d))
+            }
+            Some(d) => {
+                format!(" offset {}", Self::format_duration(d))
+            }
+            None => String::new(),
+        };
+        let at_str = match &self.at {
+            Some(at) => format!(" {}", at.__str__()),
+            None => String::new(),
+        };
+        Ok(format!(
+            "{}[{}{}]{}{}",
+            expr_str, range_str, step_str, at_str, offset_str
+        ))
+    }
+}
+
+#[pyclass(name = "AtModifier", module = "promql_parser", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyAtModifier {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     r#type: PyAtModifierType,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     at: Option<SystemTime>,
 }
 
@@ -360,12 +520,33 @@ impl From<AtModifier> for PyAtModifier {
     }
 }
 
+#[pymethods]
+impl PyAtModifier {
+    fn __str__(&self) -> String {
+        match self.r#type {
+            PyAtModifierType::Start => "@ start()".to_string(),
+            PyAtModifierType::End => "@ end()".to_string(),
+            PyAtModifierType::At => {
+                if let Some(at) = &self.at {
+                    let timestamp = at
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .map(|d| d.as_secs_f64())
+                        .unwrap_or(0.0);
+                    format!("@ {:.3}", timestamp)
+                } else {
+                    "@ 0".to_string()
+                }
+            }
+        }
+    }
+}
+
 #[pyclass(
     name = "AtModifierType",
     module = "promql_parser",
     eq,
     eq_int,
-    skip_from_py_object
+    from_py_object
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyAtModifierType {
@@ -376,7 +557,7 @@ pub enum PyAtModifierType {
 
 #[pyclass(extends = PyExpr, name = "NumberLiteral", module = "promql_parser")]
 pub struct PyNumberLiteral {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     val: f64,
 }
 
@@ -391,9 +572,16 @@ impl PyNumberLiteral {
     }
 }
 
+#[pymethods]
+impl PyNumberLiteral {
+    fn __str__(&self) -> String {
+        self.val.to_string()
+    }
+}
+
 #[pyclass(extends = PyExpr, name = "StringLiteral", module = "promql_parser")]
 pub struct PyStringLiteral {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     val: String,
 }
 
@@ -408,13 +596,14 @@ impl PyStringLiteral {
     }
 }
 
-#[pyclass(
-    name = "MatchOp",
-    module = "promql_parser",
-    eq,
-    eq_int,
-    skip_from_py_object
-)]
+#[pymethods]
+impl PyStringLiteral {
+    fn __str__(&self) -> String {
+        format!("\"{}\"", self.val)
+    }
+}
+
+#[pyclass(name = "MatchOp", module = "promql_parser", eq, eq_int, from_py_object)]
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum PyMatchOp {
     Equal,
@@ -435,19 +624,24 @@ impl PyMatchOp {
     }
 }
 
-#[pyclass(name = "Matcher", module = "promql_parser", skip_from_py_object)]
+#[pyclass(name = "Matcher", module = "promql_parser", from_py_object)]
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct PyMatcher {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     op: PyMatchOp,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     name: String,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     value: String,
 }
 
 #[pymethods]
 impl PyMatcher {
+    #[new]
+    fn new(op: PyMatchOp, name: String, value: String) -> Self {
+        PyMatcher { op, name, value }
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "Matcher({}, \"{}\", {})",
@@ -455,6 +649,16 @@ impl PyMatcher {
             self.name,
             self.value
         )
+    }
+
+    fn __str__(&self) -> String {
+        let op_str = match self.op {
+            PyMatchOp::Equal => "=",
+            PyMatchOp::NotEqual => "!=",
+            PyMatchOp::Re => "=~",
+            PyMatchOp::NotRe => "!~",
+        };
+        format!("{}{}\"{}\"", self.name, op_str, self.value)
     }
 }
 
@@ -473,24 +677,56 @@ impl From<promql_parser::label::Matcher> for PyMatcher {
     }
 }
 
-#[pyclass(name = "Matchers", module = "promql_parser", skip_from_py_object)]
+#[pyclass(name = "Matchers", module = "promql_parser", from_py_object)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PyMatchers {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     matchers: Vec<PyMatcher>,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     or_matchers: Vec<Vec<PyMatcher>>,
+}
+
+#[pymethods]
+impl PyMatchers {
+    #[new]
+    fn new(matchers: Vec<PyMatcher>) -> Self {
+        PyMatchers {
+            matchers,
+            or_matchers: Vec::new(),
+        }
+    }
+
+    fn with_or_matchers(&self, or_matchers: Vec<Vec<PyMatcher>>) -> Self {
+        PyMatchers {
+            matchers: self.matchers.clone(),
+            or_matchers,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        let matchers_str: Vec<String> = self.matchers.iter().map(|m| m.__str__()).collect();
+        if self.or_matchers.is_empty() {
+            format!("{{{}}}", matchers_str.join(","))
+        } else {
+            let mut parts = vec![matchers_str.join(",")];
+            for or_group in &self.or_matchers {
+                let or_str: Vec<String> = or_group.iter().map(|m| m.__str__()).collect();
+                parts.push(or_str.join(","));
+            }
+            format!("{{{}}}", parts.join(" or "))
+        }
+    }
 }
 
 #[pyclass(extends = PyExpr, name = "VectorSelector", module = "promql_parser")]
 pub struct PyVectorSelector {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     name: Option<String>,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     matchers: PyMatchers,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     offset: Option<Duration>,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     at: Option<PyAtModifier>,
 }
 
@@ -540,13 +776,49 @@ impl PyVectorSelector {
         });
         Py::new(py, initializer)?.into_py_any(py)
     }
+
+    fn format_offset(offset: &Option<Duration>) -> String {
+        match offset {
+            Some(d) if d.num_seconds() < 0 => {
+                format!(
+                    " offset -{}",
+                    promql_parser::util::duration::display_duration(
+                        &std::time::Duration::from_secs((-d.num_seconds()) as u64)
+                    )
+                )
+            }
+            Some(d) => {
+                format!(
+                    " offset {}",
+                    promql_parser::util::duration::display_duration(
+                        &std::time::Duration::from_secs(d.num_seconds() as u64)
+                    )
+                )
+            }
+            None => String::new(),
+        }
+    }
+}
+
+#[pymethods]
+impl PyVectorSelector {
+    fn __str__(&self) -> String {
+        let name = self.name.as_deref().unwrap_or("");
+        let matchers_str = self.matchers.__str__();
+        let at_str = match &self.at {
+            Some(at) => format!(" {}", at.__str__()),
+            None => String::new(),
+        };
+        let offset_str = Self::format_offset(&self.offset);
+        format!("{}{}{}{}", name, matchers_str, at_str, offset_str)
+    }
 }
 
 #[pyclass(extends = PyExpr, name = "MatrixSelector", module = "promql_parser")]
 pub struct PyMatrixSelector {
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     vector_selector: Py<PyAny>,
-    #[pyo3(get)]
+    #[pyo3(get, set)]
     range: Duration,
 }
 
@@ -563,6 +835,34 @@ impl PyMatrixSelector {
                 .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
         });
         Py::new(py, initializer)?.into_py_any(py)
+    }
+}
+
+#[pymethods]
+impl PyMatrixSelector {
+    fn __str__(&self, py: Python) -> PyResult<String> {
+        // Get the vector selector object to access its fields directly
+        let vs = self.vector_selector.bind(py);
+        let name: Option<String> = vs.getattr("name")?.extract()?;
+        let matchers: PyMatchers = vs.getattr("matchers")?.extract()?;
+        let at: Option<PyAtModifier> = vs.getattr("at")?.extract()?;
+        let offset: Option<Duration> = vs.getattr("offset")?.extract()?;
+
+        let name_str = name.as_deref().unwrap_or("");
+        let matchers_str = matchers.__str__();
+        let range_str = promql_parser::util::duration::display_duration(
+            &std::time::Duration::from_secs(self.range.num_seconds() as u64),
+        );
+        let at_str = match &at {
+            Some(at) => format!(" {}", at.__str__()),
+            None => String::new(),
+        };
+        let offset_str = PyVectorSelector::format_offset(&offset);
+
+        Ok(format!(
+            "{}{}[{}]{}{}",
+            name_str, matchers_str, range_str, at_str, offset_str
+        ))
     }
 }
 
@@ -594,6 +894,18 @@ impl PyCall {
         let initializer =
             PyClassInitializer::from(parent).add_subclass(PyCall { func, args: args? });
         Py::new(py, initializer)?.into_py_any(py)
+    }
+}
+
+#[pymethods]
+impl PyCall {
+    fn __str__(&self, py: Python) -> PyResult<String> {
+        let args_str: Result<Vec<String>, _> = self
+            .args
+            .iter()
+            .map(|arg| arg.call_method0(py, "__str__")?.extract(py))
+            .collect();
+        Ok(format!("{}({})", self.func.name, args_str?.join(", ")))
     }
 }
 
