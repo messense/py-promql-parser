@@ -229,21 +229,29 @@ impl PyBinaryExpr {
             modifier,
         } = expr;
         let py_modifier = match modifier {
-            Some(modifier) => Some(PyBinModifier {
-                card: modifier.card.into(),
-                matching: match modifier.matching {
-                    Some(LabelModifier::Include(labels)) => Some(PyLabelModifier {
-                        r#type: PyLabelModifierType::Include,
-                        labels: labels.labels,
-                    }),
-                    Some(LabelModifier::Exclude(labels)) => Some(PyLabelModifier {
-                        r#type: PyLabelModifierType::Exclude,
-                        labels: labels.labels,
-                    }),
-                    None => None,
-                },
-                return_bool: modifier.return_bool,
-            }),
+            Some(modifier) => {
+                let group_labels = match modifier.card {
+                    VectorMatchCardinality::ManyToOne(ref labels) => Some(labels.labels.clone()),
+                    VectorMatchCardinality::OneToMany(ref labels) => Some(labels.labels.clone()),
+                    _ => None,
+                };
+                Some(PyBinModifier {
+                    card: modifier.card.into(),
+                    matching: match modifier.matching {
+                        Some(LabelModifier::Include(labels)) => Some(PyLabelModifier {
+                            r#type: PyLabelModifierType::Include,
+                            labels: labels.labels,
+                        }),
+                        Some(LabelModifier::Exclude(labels)) => Some(PyLabelModifier {
+                            r#type: PyLabelModifierType::Exclude,
+                            labels: labels.labels,
+                        }),
+                        None => None,
+                    },
+                    return_bool: modifier.return_bool,
+                    group_labels,
+                })
+            }
             None => None,
         };
         let initializer = PyClassInitializer::from(parent).add_subclass(PyBinaryExpr {
@@ -282,21 +290,25 @@ pub struct PyBinModifier {
     matching: Option<PyLabelModifier>,
     #[pyo3(get, set)]
     return_bool: bool,
+    #[pyo3(get, set)]
+    group_labels: Option<Vec<String>>,
 }
 
 #[pymethods]
 impl PyBinModifier {
     #[new]
-    #[pyo3(signature = (card, return_bool, matching=None))]
+    #[pyo3(signature = (card, return_bool, matching=None, group_labels=None))]
     fn new(
         card: PyVectorMatchCardinality,
         return_bool: bool,
         matching: Option<PyLabelModifier>,
+        group_labels: Option<Vec<String>>,
     ) -> Self {
         PyBinModifier {
             card,
             matching,
             return_bool,
+            group_labels,
         }
     }
 
@@ -316,6 +328,10 @@ impl PyBinModifier {
             PyVectorMatchCardinality::OneToMany => parts.push("group_right".to_string()),
             _ => {}
         }
+
+        if let Some(labels) = &self.group_labels {
+            parts.push(format!("({})", labels.join(", ")));
+        } 
 
         parts.join(" ")
     }

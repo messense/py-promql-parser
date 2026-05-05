@@ -141,19 +141,22 @@ class BinModifier:
         If they are not this field is None.
       matching: on/ignoring on labels. Like a + b, no match modified is needed.
       return_bool: If a comparison operator, return 0/1 rather than filtering.
+      group_labels: Labels to retain from the low-cardinality side.
     """
 
     card: VectorMatchCardinality
     matching: Optional[LabelModifier]
     return_bool: bool
+    group_labels: Optional[List[str]]
 
-    def __init__(self, card: VectorMatchCardinality, return_bool: bool, matching: Optional[LabelModifier] = None) -> None:
+    def __init__(self, card: VectorMatchCardinality, return_bool: bool, matching: Optional[LabelModifier] = None, group_labels: Optional[List[str]] = None) -> None:
         """Create a new BinModifier.
 
         Args:
             card: The vector matching cardinality.
             return_bool: Whether to return bool values.
             matching: Optional label modifier for matching.
+            group_labels: Labels to retain from the low-cardinality side.
         """
         ...
 
