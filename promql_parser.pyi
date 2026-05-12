@@ -35,7 +35,7 @@ which isreleased at 2023-06-23. Any revision on PromQL after this commit is not 
 
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, List, Optional, final
+from typing import Any, Callable, List, Optional, final
 
 def parse(input: str) -> Expr:
     """Parse the given query literal to an AST."""
@@ -62,6 +62,23 @@ def parse_duration(duration: str) -> timedelta:
 
 def display_duration(delta: timedelta) -> str:
     """Display Duration in Prometheus format"""
+    ...
+
+def walk(expr: Expr, pre_visit: Optional[Callable[[Expr], Optional[bool]]] = None, post_visit: Optional[Callable[[Expr], Optional[bool]]] = None) -> bool:
+    """Walk an expression AST in depth-first order.
+
+    `pre_visit` is called before children are visited, and `post_visit` after
+    children are visited. Returning False from either callback stops traversal;
+    returning True or None continues traversal.
+    """
+    ...
+
+def transform(expr: Expr, pre_visit: Optional[Callable[[Expr], Optional[Expr]]] = None, post_visit: Optional[Callable[[Expr], Optional[Expr]]] = None) -> Expr:
+    """Transform an expression AST in depth-first order and return a new expression.
+
+    `pre_visit` and `post_visit` callbacks may return a replacement Expr, or
+    None to keep the current node. The input expression is not modified in place.
+    """
     ...
 
 class Expr:
@@ -142,14 +159,16 @@ class BinModifier:
       matching: on/ignoring on labels. Like a + b, no match modified is needed.
       return_bool: If a comparison operator, return 0/1 rather than filtering.
       group_labels: Labels to retain from the low-cardinality side.
+      fill_values: Fill values for unmatched vector matching entries.
     """
 
     card: VectorMatchCardinality
     matching: Optional[LabelModifier]
     return_bool: bool
     group_labels: Optional[List[str]]
+    fill_values: VectorMatchFillValues
 
-    def __init__(self, card: VectorMatchCardinality, return_bool: bool, matching: Optional[LabelModifier] = None, group_labels: Optional[List[str]] = None) -> None:
+    def __init__(self, card: VectorMatchCardinality, return_bool: bool, matching: Optional[LabelModifier] = None, group_labels: Optional[List[str]] = None, fill_values: Optional[VectorMatchFillValues] = None) -> None:
         """Create a new BinModifier.
 
         Args:
@@ -157,7 +176,24 @@ class BinModifier:
             return_bool: Whether to return bool values.
             matching: Optional label modifier for matching.
             group_labels: Labels to retain from the low-cardinality side.
+            fill_values: Optional fill values for unmatched vector matching entries.
         """
+        ...
+
+@final
+class VectorMatchFillValues:
+    """Fill values for vector matching when one side has no match.
+
+    Attributes:
+      lhs: Fill value for the left-hand side, or None for no fill.
+      rhs: Fill value for the right-hand side, or None for no fill.
+    """
+
+    lhs: Optional[float]
+    rhs: Optional[float]
+
+    def __init__(self, lhs: Optional[float] = None, rhs: Optional[float] = None) -> None:
+        """Create vector match fill values."""
         ...
 
 @final
@@ -384,3 +420,4 @@ class Function:
     arg_types: List[ValueType]
     variadic: int
     return_type: ValueType
+    experimental: bool
