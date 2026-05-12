@@ -5,7 +5,8 @@ use promql_parser::label::Label;
 use promql_parser::parser::{
     self, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, LabelModifier, MatrixSelector,
     NumberLiteral, Offset, ParenExpr, StringLiteral, SubqueryExpr, UnaryExpr,
-    VectorMatchCardinality, VectorSelector, token::TokenType, value::ValueType,
+    VectorMatchCardinality, VectorMatchFillValues, VectorSelector, token::TokenType,
+    value::ValueType,
 };
 use pyo3::exceptions::{PyNotImplementedError, PyOverflowError, PyValueError};
 use pyo3::{IntoPyObjectExt, prelude::*};
@@ -250,6 +251,7 @@ impl PyBinaryExpr {
                     },
                     return_bool: modifier.return_bool,
                     group_labels,
+                    fill_values: modifier.fill_values.into(),
                 })
             }
             None => None,
@@ -292,23 +294,27 @@ pub struct PyBinModifier {
     return_bool: bool,
     #[pyo3(get, set)]
     group_labels: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    fill_values: PyVectorMatchFillValues,
 }
 
 #[pymethods]
 impl PyBinModifier {
     #[new]
-    #[pyo3(signature = (card, return_bool, matching=None, group_labels=None))]
+    #[pyo3(signature = (card, return_bool, matching=None, group_labels=None, fill_values=None))]
     fn new(
         card: PyVectorMatchCardinality,
         return_bool: bool,
         matching: Option<PyLabelModifier>,
         group_labels: Option<Vec<String>>,
+        fill_values: Option<PyVectorMatchFillValues>,
     ) -> Self {
         PyBinModifier {
             card,
             matching,
             return_bool,
             group_labels,
+            fill_values: fill_values.unwrap_or_default(),
         }
     }
 
@@ -331,9 +337,52 @@ impl PyBinModifier {
 
         if let Some(labels) = &self.group_labels {
             parts.push(format!("({})", labels.join(", ")));
-        } 
+        }
+
+        match (self.fill_values.lhs, self.fill_values.rhs) {
+            (Some(lhs), Some(rhs)) if lhs == rhs => parts.push(format!("fill ({lhs})")),
+            (lhs, rhs) => {
+                if let Some(lhs) = lhs {
+                    parts.push(format!("fill_left ({lhs})"));
+                }
+                if let Some(rhs) = rhs {
+                    parts.push(format!("fill_right ({rhs})"));
+                }
+            }
+        }
 
         parts.join(" ")
+    }
+}
+
+#[pyclass(
+    name = "VectorMatchFillValues",
+    module = "promql_parser",
+    from_py_object
+)]
+#[derive(Debug, Clone, Default)]
+pub struct PyVectorMatchFillValues {
+    #[pyo3(get, set)]
+    lhs: Option<f64>,
+    #[pyo3(get, set)]
+    rhs: Option<f64>,
+}
+
+impl From<VectorMatchFillValues> for PyVectorMatchFillValues {
+    fn from(value: VectorMatchFillValues) -> Self {
+        PyVectorMatchFillValues {
+            lhs: value.lhs,
+            rhs: value.rhs,
+        }
+    }
+}
+
+#[pymethods]
+impl PyVectorMatchFillValues {
+    #[new]
+    #[pyo3(signature = (lhs=None, rhs=None))]
+    fn new(lhs: Option<f64>, rhs: Option<f64>) -> Self {
+        PyVectorMatchFillValues { lhs, rhs }
     }
 }
 
@@ -901,6 +950,7 @@ impl PyCall {
             arg_types: func.arg_types.into_iter().map(|t| t.into()).collect(),
             variadic: func.variadic,
             return_type: func.return_type.into(),
+            experimental: func.experimental,
         };
         let args: Result<Vec<_>, _> = args
             .args
@@ -962,4 +1012,6 @@ pub struct PyFunction {
     variadic: i32,
     #[pyo3(get)]
     return_type: PyValueType,
+    #[pyo3(get)]
+    experimental: bool,
 }

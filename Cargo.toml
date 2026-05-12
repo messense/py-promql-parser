@@ -1,6 +1,6 @@
 [package]
 name = "py-promql-parser"
-version = "0.8.1"
+version = "0.9.0"
 edition = "2024"
 description = "PromQL Parser for Python"
 license = "MIT"
@@ -14,5 +14,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 chrono = { version = "0.4.44", default-features = false, features = ["std"] }
-promql-parser = "0.8.0"
+promql-parser = "0.9.0"
 pyo3 = { version = "0.28.3", features = ["chrono", "generate-import-lib"] }
