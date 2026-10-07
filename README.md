@@ -93,6 +93,29 @@ assert promql_parser.parse_duration("1h30m") == timedelta(seconds=5400)
 assert promql_parser.display_duration(timedelta(days=7, hours=2)) == "7d2h"
 ```
 
+## Custom functions
+
+Register extra function signatures before parsing PromQL that uses them:
+
+```python
+import promql_parser
+
+promql_parser.register_extra_functions([
+    promql_parser.Function(
+        "custom_over_time",
+        [promql_parser.ValueType.Matrix],
+        promql_parser.ValueType.Vector,
+    ),
+])
+
+expr = promql_parser.parse("custom_over_time(requests_total[5m])")
+
+promql_parser.clear_extra_functions()
+```
+
+Registrations are process-global and additive. Built-in PromQL functions cannot
+be overridden.
+
 ## License
 
 This work is released under the MIT license. A copy of the license is provided in the [LICENSE](./LICENSE) file.

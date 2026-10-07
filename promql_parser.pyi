@@ -64,6 +64,18 @@ def display_duration(delta: timedelta) -> str:
     """Display Duration in Prometheus format"""
     ...
 
+def register_extra_functions(functions: List[Function]) -> None:
+    """Register additional functions recognized by the PromQL parser.
+
+    Registrations are process-global and additive. Registering a function with
+    the same name as a built-in function raises ValueError.
+    """
+    ...
+
+def clear_extra_functions() -> None:
+    """Clear all previously registered extra functions."""
+    ...
+
 def walk(expr: Expr, pre_visit: Optional[Callable[[Expr], Optional[bool]]] = None, post_visit: Optional[Callable[[Expr], Optional[bool]]] = None) -> bool:
     """Walk an expression AST in depth-first order.
 
@@ -421,3 +433,14 @@ class Function:
     variadic: int
     return_type: ValueType
     experimental: bool
+
+    def __init__(
+        self,
+        name: str,
+        arg_types: List[ValueType],
+        return_type: ValueType,
+        variadic: int = 0,
+        experimental: bool = False,
+    ) -> None:
+        """Describe a function accepted by the PromQL parser."""
+        ...

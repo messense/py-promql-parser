@@ -14,5 +14,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 chrono = { version = "0.4.44", default-features = false, features = ["std"] }
-promql-parser = "0.10.0"
+promql-parser = "0.11.0"
 pyo3 = { version = "0.29.0", features = ["chrono", "generate-import-lib"] }
