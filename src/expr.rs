@@ -946,7 +946,7 @@ impl PyCall {
         };
         let Call { func, args } = expr;
         let func = PyFunction {
-            name: func.name,
+            name: func.name.to_owned(),
             arg_types: func.arg_types.into_iter().map(|t| t.into()).collect(),
             variadic: func.variadic,
             return_type: func.return_type.into(),
@@ -980,7 +980,7 @@ impl PyCall {
     module = "promql_parser",
     eq,
     eq_int,
-    skip_from_py_object
+    from_py_object
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyValueType {
@@ -1001,11 +1001,22 @@ impl From<ValueType> for PyValueType {
     }
 }
 
-#[pyclass(name = "Function", module = "promql_parser", skip_from_py_object)]
+impl From<PyValueType> for ValueType {
+    fn from(value: PyValueType) -> Self {
+        match value {
+            PyValueType::Vector => ValueType::Vector,
+            PyValueType::Scalar => ValueType::Scalar,
+            PyValueType::Matrix => ValueType::Matrix,
+            PyValueType::String => ValueType::String,
+        }
+    }
+}
+
+#[pyclass(name = "Function", module = "promql_parser", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyFunction {
     #[pyo3(get)]
-    name: &'static str,
+    name: String,
     #[pyo3(get)]
     arg_types: Vec<PyValueType>,
     #[pyo3(get)]
@@ -1014,4 +1025,40 @@ pub struct PyFunction {
     return_type: PyValueType,
     #[pyo3(get)]
     experimental: bool,
+}
+
+impl PyFunction {
+    pub fn into_rust(self) -> promql_parser::parser::function::Function {
+        // Function names are required to have static lifetime by promql-parser
+        // because registrations are stored globally for the process lifetime.
+        let name = Box::leak(self.name.into_boxed_str());
+        promql_parser::parser::function::Function::new(
+            name,
+            self.arg_types.into_iter().map(Into::into).collect(),
+            self.variadic,
+            self.return_type.into(),
+            self.experimental,
+        )
+    }
+}
+
+#[pymethods]
+impl PyFunction {
+    #[new]
+    #[pyo3(signature = (name, arg_types, return_type, variadic=0, experimental=false))]
+    fn new(
+        name: String,
+        arg_types: Vec<PyValueType>,
+        return_type: PyValueType,
+        variadic: i32,
+        experimental: bool,
+    ) -> Self {
+        Self {
+            name,
+            arg_types,
+            variadic,
+            return_type,
+            experimental,
+        }
+    }
 }

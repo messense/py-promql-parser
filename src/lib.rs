@@ -4,7 +4,7 @@ use pyo3::types::{PyDelta, PyDeltaAccess};
 
 mod expr;
 
-use self::expr::PyExpr;
+use self::expr::{PyExpr, PyFunction};
 use ::promql_parser::parser::{
     AggregateExpr, BinaryExpr, Call, Expr, MatrixSelector, ParenExpr, SubqueryExpr, UnaryExpr,
 };
@@ -35,6 +35,19 @@ fn display_duration(delta: Bound<'_, PyDelta>) -> String {
         delta.get_microseconds() as u32 * 1000,
     );
     ::promql_parser::util::duration::display_duration(&duration)
+}
+
+/// Register additional functions recognized by the PromQL parser.
+#[pyfunction]
+fn register_extra_functions(functions: Vec<PyFunction>) -> PyResult<()> {
+    let functions = functions.into_iter().map(PyFunction::into_rust).collect();
+    ::promql_parser::parser::register_extra_functions(functions).map_err(PyValueError::new_err)
+}
+
+/// Clear all previously registered extra functions.
+#[pyfunction]
+fn clear_extra_functions() {
+    ::promql_parser::parser::clear_extra_functions();
 }
 
 fn extract_expr(expr: &Bound<'_, PyAny>) -> PyResult<Expr> {
@@ -255,5 +268,7 @@ fn promql_parser(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(transform, m)?)?;
     m.add_function(wrap_pyfunction!(parse_duration, m)?)?;
     m.add_function(wrap_pyfunction!(display_duration, m)?)?;
+    m.add_function(wrap_pyfunction!(register_extra_functions, m)?)?;
+    m.add_function(wrap_pyfunction!(clear_extra_functions, m)?)?;
     Ok(())
 }
