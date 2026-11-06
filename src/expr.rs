@@ -1,6 +1,6 @@
-use std::time::SystemTime;
+use std::time::{Duration as StdDuration, SystemTime};
 
-use chrono::Duration;
+use jiff::SignedDuration;
 use promql_parser::label::Label;
 use promql_parser::parser::{
     self, AggregateExpr, AtModifier, BinaryExpr, Call, Expr, LabelModifier, MatrixSelector,
@@ -11,7 +11,24 @@ use promql_parser::parser::{
 use pyo3::exceptions::{PyNotImplementedError, PyOverflowError, PyValueError};
 use pyo3::{IntoPyObjectExt, prelude::*};
 
-#[pyclass(subclass, name = "Expr", module = "promql_parser", skip_from_py_object)]
+fn std_to_signed(d: StdDuration) -> PyResult<SignedDuration> {
+    SignedDuration::try_from(d).map_err(|e| PyOverflowError::new_err(e.to_string()))
+}
+
+fn offset_to_signed(offset: Offset) -> PyResult<SignedDuration> {
+    match offset {
+        Offset::Pos(d) => std_to_signed(d),
+        Offset::Neg(d) => std_to_signed(d).map(|d| -d),
+    }
+}
+
+fn format_signed_duration(d: &SignedDuration) -> String {
+    promql_parser::util::duration::display_duration(&StdDuration::from_secs(
+        d.as_secs().unsigned_abs(),
+    ))
+}
+
+#[pyclass(subclass, name = "Expr", module = "promql_parser")]
 #[derive(Debug, Clone)]
 pub struct PyExpr {
     pub expr: Expr,
@@ -122,7 +139,7 @@ impl PyAggregateExpr {
     }
 }
 
-#[pyclass(name = "TokenType", module = "promql_parser", skip_from_py_object)]
+#[pyclass(name = "TokenType", module = "promql_parser")]
 #[derive(Debug, Clone, Copy)]
 pub struct PyTokenType {
     r#type: TokenType,
@@ -482,13 +499,13 @@ pub struct PySubqueryExpr {
     #[pyo3(get, set)]
     expr: Py<PyAny>,
     #[pyo3(get, set)]
-    offset: Option<Duration>,
+    offset: Option<SignedDuration>,
     #[pyo3(get, set)]
     at: Option<PyAtModifier>,
     #[pyo3(get, set)]
-    range: Duration,
+    range: SignedDuration,
     #[pyo3(get, set)]
-    step: Option<Duration>,
+    step: Option<SignedDuration>,
 }
 
 impl PySubqueryExpr {
@@ -505,34 +522,12 @@ impl PySubqueryExpr {
         } = expr;
         let initializer = PyClassInitializer::from(parent).add_subclass(PySubqueryExpr {
             expr: PyExpr::create(py, *expr)?,
-            offset: match offset {
-                Some(Offset::Pos(off)) => Some(
-                    Duration::from_std(off).map_err(|e| PyOverflowError::new_err(e.to_string()))?,
-                ),
-                Some(Offset::Neg(off)) => Some(
-                    -Duration::from_std(off)
-                        .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
-                ),
-                None => None,
-            },
+            offset: offset.map(offset_to_signed).transpose()?,
             at: at.map(|at| at.into()),
-            range: Duration::from_std(range)
-                .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
-            step: match step {
-                Some(step) => Some(
-                    Duration::from_std(step)
-                        .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
-                ),
-                None => None,
-            },
+            range: std_to_signed(range)?,
+            step: step.map(std_to_signed).transpose()?,
         });
         Py::new(py, initializer)?.into_py_any(py)
-    }
-
-    fn format_duration(d: &Duration) -> String {
-        promql_parser::util::duration::display_duration(&std::time::Duration::from_secs(
-            d.num_seconds().unsigned_abs(),
-        ))
     }
 }
 
@@ -540,17 +535,17 @@ impl PySubqueryExpr {
 impl PySubqueryExpr {
     fn __str__(&self, py: Python) -> PyResult<String> {
         let expr_str: String = self.expr.call_method0(py, "__str__")?.extract(py)?;
-        let range_str = Self::format_duration(&self.range);
+        let range_str = format_signed_duration(&self.range);
         let step_str = match &self.step {
-            Some(s) => format!(":{}", Self::format_duration(s)),
+            Some(s) => format!(":{}", format_signed_duration(s)),
             None => String::new(),
         };
         let offset_str = match &self.offset {
-            Some(d) if d.num_seconds() < 0 => {
-                format!(" offset -{}", Self::format_duration(d))
+            Some(d) if d.as_secs() < 0 => {
+                format!(" offset -{}", format_signed_duration(d))
             }
             Some(d) => {
-                format!(" offset {}", Self::format_duration(d))
+                format!(" offset {}", format_signed_duration(d))
             }
             None => String::new(),
         };
@@ -790,7 +785,7 @@ pub struct PyVectorSelector {
     #[pyo3(get, set)]
     matchers: PyMatchers,
     #[pyo3(get, set)]
-    offset: Option<Duration>,
+    offset: Option<SignedDuration>,
     #[pyo3(get, set)]
     at: Option<PyAtModifier>,
 }
@@ -827,37 +822,28 @@ impl PyVectorSelector {
         let initializer = PyClassInitializer::from(parent).add_subclass(PyVectorSelector {
             name,
             matchers: py_matchers,
-            offset: match offset {
-                Some(Offset::Pos(off)) => Some(
-                    Duration::from_std(off).map_err(|e| PyOverflowError::new_err(e.to_string()))?,
-                ),
-                Some(Offset::Neg(off)) => Some(
-                    -Duration::from_std(off)
-                        .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
-                ),
-                None => None,
-            },
+            offset: offset.map(offset_to_signed).transpose()?,
             at: at.map(|at| at.into()),
         });
         Py::new(py, initializer)?.into_py_any(py)
     }
 
-    fn format_offset(offset: &Option<Duration>) -> String {
+    fn format_offset(offset: &Option<SignedDuration>) -> String {
         match offset {
-            Some(d) if d.num_seconds() < 0 => {
+            Some(d) if d.as_secs() < 0 => {
                 format!(
                     " offset -{}",
-                    promql_parser::util::duration::display_duration(
-                        &std::time::Duration::from_secs((-d.num_seconds()) as u64)
-                    )
+                    promql_parser::util::duration::display_duration(&StdDuration::from_secs(
+                        d.as_secs().unsigned_abs()
+                    ))
                 )
             }
             Some(d) => {
                 format!(
                     " offset {}",
-                    promql_parser::util::duration::display_duration(
-                        &std::time::Duration::from_secs(d.num_seconds() as u64)
-                    )
+                    promql_parser::util::duration::display_duration(&StdDuration::from_secs(
+                        d.as_secs() as u64
+                    ))
                 )
             }
             None => String::new(),
@@ -884,7 +870,7 @@ pub struct PyMatrixSelector {
     #[pyo3(get, set)]
     vector_selector: Py<PyAny>,
     #[pyo3(get, set)]
-    range: Duration,
+    range: SignedDuration,
 }
 
 impl PyMatrixSelector {
@@ -896,8 +882,7 @@ impl PyMatrixSelector {
         let vector_selector = PyVectorSelector::create(py, vs)?;
         let initializer = PyClassInitializer::from(parent).add_subclass(PyMatrixSelector {
             vector_selector,
-            range: Duration::from_std(range)
-                .map_err(|e| PyOverflowError::new_err(e.to_string()))?,
+            range: std_to_signed(range)?,
         });
         Py::new(py, initializer)?.into_py_any(py)
     }
@@ -911,13 +896,13 @@ impl PyMatrixSelector {
         let name: Option<String> = vs.getattr("name")?.extract()?;
         let matchers: PyMatchers = vs.getattr("matchers")?.extract()?;
         let at: Option<PyAtModifier> = vs.getattr("at")?.extract()?;
-        let offset: Option<Duration> = vs.getattr("offset")?.extract()?;
+        let offset: Option<SignedDuration> = vs.getattr("offset")?.extract()?;
 
         let name_str = name.as_deref().unwrap_or("");
         let matchers_str = matchers.__str__();
-        let range_str = promql_parser::util::duration::display_duration(
-            &std::time::Duration::from_secs(self.range.num_seconds() as u64),
-        );
+        let range_str = promql_parser::util::duration::display_duration(&StdDuration::from_secs(
+            self.range.as_secs() as u64,
+        ));
         let at_str = match &at {
             Some(at) => format!(" {}", at.__str__()),
             None => String::new(),

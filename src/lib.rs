@@ -1,8 +1,10 @@
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyOverflowError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDelta, PyDeltaAccess};
+use pyo3::types::PyDelta;
 
 mod expr;
+
+use jiff::SignedDuration;
 
 use self::expr::{PyExpr, PyFunction};
 use ::promql_parser::parser::{
@@ -19,22 +21,17 @@ fn parse(py: Python, input: &str) -> PyResult<Py<PyAny>> {
 fn parse_duration<'p>(py: Python<'p>, duration: &str) -> PyResult<Bound<'p, PyDelta>> {
     let duration =
         ::promql_parser::util::duration::parse_duration(duration).map_err(PyValueError::new_err)?;
-    PyDelta::new(
-        py,
-        0,
-        duration.as_secs().try_into().unwrap(),
-        duration.subsec_millis().try_into().unwrap(),
-        false,
-    )
+    let signed = SignedDuration::try_from(duration)
+        .map_err(|e| PyOverflowError::new_err(e.to_string()))?;
+    signed.into_pyobject(py)
 }
 
 #[pyfunction]
-fn display_duration(delta: Bound<'_, PyDelta>) -> String {
-    let duration = std::time::Duration::new(
-        delta.get_days() as u64 * 24 * 60 * 60 + delta.get_seconds() as u64,
-        delta.get_microseconds() as u32 * 1000,
-    );
-    ::promql_parser::util::duration::display_duration(&duration)
+fn display_duration(delta: Bound<'_, PyDelta>) -> PyResult<String> {
+    let signed: SignedDuration = delta.extract()?;
+    let duration = std::time::Duration::try_from(signed)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok(::promql_parser::util::duration::display_duration(&duration))
 }
 
 /// Register additional functions recognized by the PromQL parser.
