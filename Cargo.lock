@@ -521,7 +521,7 @@ dependencies = [
 
 [[package]]
 name = "py-promql-parser"
-version = "0.12.0"
+version = "0.11.1"
 dependencies = [
  "jiff",
  "promql-parser",
